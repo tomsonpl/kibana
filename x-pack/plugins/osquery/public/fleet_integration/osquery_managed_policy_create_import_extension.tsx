@@ -291,54 +291,6 @@ export const OsqueryManagedPolicyCreateImportExtension = React.memo<
     }
   }, [editMode, http, policy?.policy_id, policyAgentsCount]);
 
-  useEffect(() => {
-    /*
-      by default Fleet set up streams with an empty scheduled query,
-      this code removes that, so the user can schedule queries
-      in the next step
-    */
-    if (newPolicy?.package?.version) {
-      if (!editMode && satisfies(newPolicy?.package?.version, '<0.6.0')) {
-        const updatedPolicy = produce(newPolicy, (draft) => {
-          set(draft, 'inputs[0].streams', []);
-        });
-        onChange({
-          isValid: true,
-          updatedPolicy,
-        });
-      }
-
-      /* From 0.6.0 we don't provide an input template, so we have to set it here */
-      if (satisfies(newPolicy?.package?.version, '>=0.6.0')) {
-        const updatedPolicy = produce(newPolicy, (draft) => {
-          if (!draft.inputs.length) {
-            set(draft, 'inputs[0]', {
-              type: 'osquery',
-              enabled: true,
-              streams: [],
-              policy_template: 'osquery_manager',
-            });
-          } else {
-            if (!draft.inputs[0].type) {
-              set(draft, 'inputs[0].type', 'osquery');
-            }
-            if (!draft.inputs[0].policy_template) {
-              set(draft, 'inputs[0].policy_template', 'osquery_manager');
-            }
-            if (!draft.inputs[0].enabled) {
-              set(draft, 'inputs[0].enabled', true);
-            }
-          }
-        });
-        onChange({
-          isValid: true,
-          updatedPolicy,
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <>
       {!editMode ? <DisabledCallout /> : null}

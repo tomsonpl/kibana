@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { omit, partition } from 'lodash';
+import { omit, partition, pick } from 'lodash';
 import { i18n } from '@kbn/i18n';
 import semverLt from 'semver/functions/lt';
 import { getFlattenedObject } from '@kbn/std';
@@ -602,14 +602,22 @@ class PackagePolicyService {
         );
         updatePackagePolicy.elasticsearch = registryPkgInfo.elasticsearch;
 
-        await this.update(
-          soClient,
-          esClient,
-          id,
-          updatePackagePolicy,
-          options,
-          packagePolicy.package.version
+        const newData = await packagePolicyService.runExternalCallbacks(
+          'packagePolicyUpdate',
+          pick(updatePackagePolicy, [
+            'name',
+            'description',
+            'namespace',
+            'policy_id',
+            'enabled',
+            'output_id',
+            'package',
+            'inputs',
+            'vars',
+          ])
         );
+
+        await this.update(soClient, esClient, id, newData, options, packagePolicy.package.version);
         result.push({
           id,
           name: packagePolicy.name,

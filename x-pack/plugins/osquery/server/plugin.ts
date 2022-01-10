@@ -30,6 +30,7 @@ import { OsqueryAppContext, OsqueryAppContextService } from './lib/osquery_app_c
 import { ConfigType } from './config';
 import { packSavedObjectType, savedQuerySavedObjectType } from '../common/types';
 import { PLUGIN_ID } from '../common';
+import { preparePackagePolicyInput } from './lib/fleet_integration';
 
 const registerFeatures = (features: SetupPlugins['features']) => {
   features.registerKibanaFeature({
@@ -256,6 +257,11 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
       logger: this.logger,
       registerIngestCallback,
     });
+
+    if (registerIngestCallback) {
+      registerIngestCallback('packagePolicyUpdate', preparePackagePolicyInput);
+      registerIngestCallback('packagePolicyCreate', preparePackagePolicyInput);
+    }
 
     return {};
   }
