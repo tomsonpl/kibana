@@ -10,7 +10,11 @@ import Boom from '@hapi/boom';
 
 import { SavedObjectsErrorHelpers } from '../../../../../../src/core/server';
 import type { RequestHandler } from '../../../../../../src/core/server';
-import { appContextService, packagePolicyService } from '../../services';
+import {
+  appContextService,
+  packagePolicyService,
+  prepareInputsForPackagePolicy,
+} from '../../services';
 import type {
   GetPackagePoliciesRequestSchema,
   GetOnePackagePolicyRequestSchema,
@@ -141,18 +145,6 @@ export const updatePackagePolicyHandler: RequestHandler<
 
   const body = { ...request.body };
   // removed fields not recognized by schema
-  const packagePolicyInputs = packagePolicy.inputs.map((input) => {
-    const newInput = {
-      ...input,
-      streams: input.streams.map((stream) => {
-        const newStream = { ...stream };
-        delete newStream.compiled_stream;
-        return newStream;
-      }),
-    };
-    delete newInput.compiled_input;
-    return newInput;
-  });
   // listing down accepted properties, because loaded packagePolicy contains some that are not accepted in update
   let newData = {
     ...body,
@@ -163,7 +155,7 @@ export const updatePackagePolicyHandler: RequestHandler<
     enabled: body.enabled ?? packagePolicy.enabled,
     output_id: body.output_id ?? packagePolicy.output_id,
     package: body.package ?? packagePolicy.package,
-    inputs: body.inputs ?? packagePolicyInputs,
+    inputs: body.inputs ?? prepareInputsForPackagePolicy(packagePolicy.inputs),
     vars: body.vars ?? packagePolicy.vars,
   } as NewPackagePolicy;
 

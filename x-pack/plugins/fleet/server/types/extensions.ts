@@ -26,9 +26,9 @@ export type PostPackagePolicyCreateCallback = (
 ) => Promise<NewPackagePolicy>;
 
 export type PutPackagePolicyUpdateCallback = (
-  updatePackagePolicy: UpdatePackagePolicy,
-  context: RequestHandlerContext,
-  request: KibanaRequest
+  updatePackagePolicy: UpdatePackagePolicy
+  // context: RequestHandlerContext,
+  // request: KibanaRequest
 ) => Promise<UpdatePackagePolicy>;
 
 export type ExternalCallbackCreate = ['packagePolicyCreate', PostPackagePolicyCreateCallback];

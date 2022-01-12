@@ -58,6 +58,7 @@ import type {
   PackagePolicySOAttributes,
   RegistryPackage,
   DryRunPackagePolicy,
+  PutPackagePolicyUpdateCallback,
 } from '../types';
 import type { ExternalCallback } from '..';
 
@@ -604,20 +605,38 @@ class PackagePolicyService {
 
         const newData = await packagePolicyService.runExternalCallbacks(
           'packagePolicyUpdate',
-          pick(updatePackagePolicy, [
-            'name',
-            'description',
-            'namespace',
-            'policy_id',
-            'enabled',
-            'output_id',
-            'package',
-            'inputs',
-            'vars',
-          ])
+          pick(
+            {
+              ...updatePackagePolicy,
+              inputs: prepareInputsForPackagePolicy(
+                updatePackagePolicy.inputs as PackagePolicyInput[]
+              ),
+            },
+            [
+              'name',
+              'description',
+              'namespace',
+              'policy_id',
+              'enabled',
+              'output_id',
+              'package',
+              'inputs',
+              'vars',
+            ]
+          )
         );
 
-        await this.update(soClient, esClient, id, newData, options, packagePolicy.package.version);
+        await this.update(
+          soClient,
+          esClient,
+          id,
+          {
+            ...newData,
+            elasticsearch: updatePackagePolicy.elasticsearch,
+          },
+          options,
+          packagePolicy.package.version
+        );
         result.push({
           id,
           name: packagePolicy.name,
@@ -812,8 +831,8 @@ class PackagePolicyService {
     packagePolicy: A extends 'postPackagePolicyDelete'
       ? DeletePackagePoliciesResponse
       : NewPackagePolicy,
-    context: RequestHandlerContext,
-    request: KibanaRequest
+    context?: RequestHandlerContext,
+    request?: KibanaRequest
   ): Promise<A extends 'postPackagePolicyDelete' ? void : NewPackagePolicy>;
   public async runExternalCallbacks(
     externalCallbackType: ExternalCallback[0],
@@ -830,10 +849,11 @@ class PackagePolicyService {
         if (externalCallbacks && externalCallbacks.size > 0) {
           let updatedNewData = newData;
           for (const callback of externalCallbacks) {
-            const result = await callback(updatedNewData, context, request);
             if (externalCallbackType === 'packagePolicyCreate') {
+              const result = await callback(updatedNewData, context, request);
               updatedNewData = NewPackagePolicySchema.validate(result);
             } else if (externalCallbackType === 'packagePolicyUpdate') {
+              const result = await (callback as PutPackagePolicyUpdateCallback)(updatedNewData);
               updatedNewData = UpdatePackagePolicySchema.validate(result);
             }
           }
@@ -1403,3 +1423,17 @@ export async function incrementPackageName(
       : 1
   }`;
 }
+
+export const prepareInputsForPackagePolicy = (inputs: PackagePolicyInput[]) =>
+  inputs.map((input) => {
+    const newInput = {
+      ...input,
+      streams: input.streams.map((stream) => {
+        const newStream = { ...stream };
+        delete newStream.compiled_stream;
+        return newStream;
+      }),
+    };
+    delete newInput.compiled_input;
+    return newInput;
+  });
