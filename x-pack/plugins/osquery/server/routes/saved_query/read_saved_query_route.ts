@@ -31,9 +31,9 @@ export const readSavedQueryRoute = (router: IRouter) => {
 
       if (savedQuery.attributes.ecs_mapping) {
         // @ts-expect-error update types
-        savedQuery.attributes.ecs_mapping = convertECSMappingToObject(
-          savedQuery.attributes.ecs_mapping
-        );
+        // savedQuery.attributes.ecs_mapping = convertECSMappingToObject(
+        //   savedQuery.attributes.ecs_mapping
+        // );
       }
 
       return response.ok({

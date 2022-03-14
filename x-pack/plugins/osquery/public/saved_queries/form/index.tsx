@@ -13,14 +13,7 @@ import {
   EuiText,
   EuiButtonEmpty,
 } from '@elastic/eui';
-import React, {
-  useCallback,
-  useMemo,
-  useRef,
-  forwardRef,
-  useImperativeHandle,
-  useState,
-} from 'react';
+import React, { useCallback, useMemo, forwardRef, useState } from 'react';
 import { i18n } from '@kbn/i18n';
 import { FormattedMessage } from '@kbn/i18n-react';
 
@@ -48,7 +41,6 @@ export interface SavedQueryFormRefObject {
 const SavedQueryFormComponent = forwardRef<SavedQueryFormRefObject, SavedQueryFormProps>(
   ({ viewMode, hasPlayground, isValid }, ref) => {
     const [playgroundVisible, setPlaygroundVisible] = useState(false);
-    const ecsFieldRef = useRef<ECSMappingEditorFieldRef>();
 
     const euiFieldProps = useMemo(
       () => ({
@@ -57,25 +49,14 @@ const SavedQueryFormComponent = forwardRef<SavedQueryFormRefObject, SavedQueryFo
       [viewMode]
     );
 
-    const [{ query }] = useFormData({ watch: ['query'] });
+    const [data] = useFormData({ watch: ['query'] });
 
+    console.log({ data });
+    const { query } = data;
     const handleHidePlayground = useCallback(() => setPlaygroundVisible(false), []);
 
     const handleTogglePlayground = useCallback(
       () => setPlaygroundVisible((prevValue) => !prevValue),
-      []
-    );
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        validateEcsMapping: () => {
-          if (ecsFieldRef.current) {
-            return ecsFieldRef.current.validate();
-          }
-          return Promise.resolve(false);
-        },
-      }),
       []
     );
 
@@ -93,7 +74,7 @@ const SavedQueryFormComponent = forwardRef<SavedQueryFormRefObject, SavedQueryFo
               path="ecs_mapping"
               component={ECSMappingEditorField}
               query={query}
-              fieldRef={ecsFieldRef}
+              // fieldRef={ecsFieldRef}
             />
           </EuiFlexItem>
         </EuiFlexGroup>

@@ -40,6 +40,8 @@ const EditSavedQueryFormComponent: React.FC<EditSavedQueryFormProps> = ({
     savedQueryFormRef,
     handleSubmit,
   });
+
+  console.log({ form });
   const { submit, isSubmitting } = form;
 
   return (

@@ -74,6 +74,7 @@ export const updateSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAp
         return response.conflict({ body: `Saved query with id "${id}" already exists.` });
       }
 
+      console.log('backend ecs', ecs_mapping);
       const updatedSavedQuerySO = await savedObjectsClient.update(
         savedQuerySavedObjectType,
         request.params.id,
@@ -84,7 +85,7 @@ export const updateSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAp
           query,
           version,
           interval,
-          ecs_mapping: convertECSMappingToArray(ecs_mapping),
+          ecs_mapping: convertECSMappingToObject(ecs_mapping),
           updated_by: currentUser,
           updated_at: new Date().toISOString(),
         },

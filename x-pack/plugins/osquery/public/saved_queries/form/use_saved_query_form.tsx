@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { isArray, isEmpty, map } from 'lodash';
+import { isArray, isEmpty, map, reduce } from 'lodash';
 import uuid from 'uuid';
 import { produce } from 'immer';
 import { RefObject, useMemo } from 'react';
@@ -23,6 +23,20 @@ interface UseSavedQueryFormProps {
   handleSubmit: (payload: unknown) => Promise<void>;
   savedQueryFormRef: RefObject<SavedQueryFormRefObject>;
 }
+const convertECSMappingToObject = (
+  ecsMapping: Array<{ key: string; value: Record<string, object> }>
+) =>
+  reduce(
+    ecsMapping,
+    (acc, value) => {
+      console.log({ acc, value });
+      acc[value.key] = {
+        [value.result.type]: value.result.value,
+      };
+      return acc;
+    },
+    {} as Record<string, { field?: string; value?: string }>
+  );
 
 export const useSavedQueryForm = ({
   defaultValue,
@@ -48,13 +62,15 @@ export const useSavedQueryForm = ({
     id: SAVED_QUERY_FORM_ID + uuid.v4(),
     schema: formSchema,
     onSubmit: async (formData, isValid) => {
-      const ecsFieldValue = await savedQueryFormRef?.current?.validateEcsMapping();
-
+      console.log({ formData, isValid });
       if (isValid) {
+        const ecsMapping = formData['ecs_mapping'] ? JSON.parse(formData['ecs_mapping']) : [];
+        const objMapping = convertECSMappingToObject(ecsMapping);
+        console.log({ ecsMapping, objMapping });
         try {
           await handleSubmit({
             ...formData,
-            ecs_mapping: ecsFieldValue,
+            ecs_mapping: objMapping,
           });
           // eslint-disable-next-line no-empty
         } catch (e) {}
@@ -81,15 +97,18 @@ export const useSavedQueryForm = ({
         if (isEmpty(draft.ecs_mapping)) {
           // @ts-expect-error update types
           delete draft.ecs_mapping;
+        } else {
+          draft.ecs_mapping = JSON.stringify(draft.ecs_mapping);
+          // @ts-expect-error update types
+          draft.interval = draft.interval + '';
+          return draft;
         }
-        // @ts-expect-error update types
-        draft.interval = draft.interval + '';
-        return draft;
       }),
     // @ts-expect-error update types
     deserializer: (payload) => {
       if (!payload) return {} as PackFormData;
 
+      console.log({ payload });
       return {
         id: payload.id,
         description: payload.description,
@@ -97,7 +116,21 @@ export const useSavedQueryForm = ({
         interval: payload.interval ?? 3600,
         platform: payload.platform,
         version: payload.version ? [payload.version] : [],
-        ecs_mapping: payload.ecs_mapping ?? {},
+        ecs_mapping: payload?.ecs_mapping?.map((item) => ({
+          key: item.key,
+          result: {
+            type: Object.keys(item.value)[0],
+            value: Object.values(item.value)[0],
+          },
+        })) ?? [
+          {
+            key: '',
+            result: {
+              type: 'field',
+              value: '',
+            },
+          },
+        ],
       };
     },
   });
