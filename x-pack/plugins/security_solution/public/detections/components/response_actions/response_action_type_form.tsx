@@ -15,52 +15,51 @@ import {
   EuiText,
 } from '@elastic/eui';
 import { i18n } from '@kbn/i18n';
-import { get } from 'lodash';
 import { OsqueryResponseAction } from './osquery/osquery_response_action';
 import { getLogo, RESPONSE_ACTION_TYPES } from './constants';
-import { useFormData } from '../../../shared_imports';
-import type { ArrayItem } from '../../../shared_imports';
+import type { IResponseAction } from './types';
 
 interface IProps {
-  item: ArrayItem;
-  onDeleteAction: (id: number) => void;
+  item: IResponseAction;
+  onDeleteAction: (id: string) => void;
+  updateFormAction: (key: string, value: any, index: number) => void;
 }
 
 export const ResponseActionTypeForm = React.memo((props: IProps) => {
-  const { item, onDeleteAction } = props;
+  const { item, onDeleteAction, index, updateFormAction } = props;
   const [_isOpen, setIsOpen] = useState(true);
 
-  const [data] = useFormData();
-  const action = get(data, item.path);
-
   const getResponseActionTypeForm = useCallback(() => {
-    if (action?.actionTypeId === RESPONSE_ACTION_TYPES.OSQUERY) {
-      return <OsqueryResponseAction item={item} />;
+    if (item?.actionTypeId === RESPONSE_ACTION_TYPES.OSQUERY) {
+      return (
+        <OsqueryResponseAction item={item} index={index} updateFormAction={updateFormAction} />
+      );
     }
     // Place for other ResponseActionTypes
     return null;
-  }, [action?.actionTypeId, item]);
+  }, [index, item, updateFormAction]);
 
   const handleDelete = useCallback(() => {
-    onDeleteAction(item.id);
+    console.log('handledelete id:', item, item.params.id);
+    onDeleteAction(item.params.id);
   }, [item, onDeleteAction]);
 
   const renderButtonContent = useMemo(() => {
     return (
       <EuiFlexGroup gutterSize="l" alignItems="center">
         <EuiFlexItem grow={false}>
-          <EuiIcon type={getLogo(action?.actionTypeId)} size="m" />
+          <EuiIcon type={getLogo(item?.actionTypeId)} size="m" />
         </EuiFlexItem>
         <EuiFlexItem>
           <EuiText>
             <EuiFlexGroup gutterSize="s">
-              <EuiFlexItem grow={false}>{action?.actionTypeId}</EuiFlexItem>
+              <EuiFlexItem grow={false}>{item?.actionTypeId}</EuiFlexItem>
             </EuiFlexGroup>
           </EuiText>
         </EuiFlexItem>
       </EuiFlexGroup>
     );
-  }, [action?.actionTypeId]);
+  }, [item?.actionTypeId]);
 
   const renderExtraContent = useMemo(() => {
     return (
@@ -81,8 +80,8 @@ export const ResponseActionTypeForm = React.memo((props: IProps) => {
   return (
     <EuiAccordion
       initialIsOpen={true}
-      key={item.id}
-      id={item.id.toString()}
+      key={item?.id || 0}
+      id={item?.id?.toString() || '0'}
       onToggle={setIsOpen}
       paddingSize="l"
       className="actAccordionActionForm"

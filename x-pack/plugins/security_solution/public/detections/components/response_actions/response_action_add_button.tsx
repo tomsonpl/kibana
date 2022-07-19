@@ -9,32 +9,39 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { EuiButton, EuiFlexGroup, EuiFlexItem, EuiIcon, EuiKeyPadMenuItem } from '@elastic/eui';
 import { suspendedComponentWithProps } from '@kbn/triggers-actions-ui-plugin/public';
 import { FormattedMessage } from '@kbn/i18n-react';
+import uuid from 'uuid';
 import type { ResponseActionType } from './get_supported_response_actions';
 import { useFormData } from '../../../shared_imports';
+import type { IResponseAction } from './types';
 
 interface IResponseActionsAddButtonProps {
   supportedResponseActionTypes: ResponseActionType[];
-  addActionType: () => void;
-  updateActionTypeId: (id: string) => void;
+  addActionType: (item: IResponseAction) => void;
 }
 
 export const ResponseActionAddButton = ({
   supportedResponseActionTypes,
   addActionType,
-  updateActionTypeId,
 }: IResponseActionsAddButtonProps) => {
   const [data] = useFormData();
   const [isAddResponseActionButtonShown, setAddResponseActionButtonShown] = useState(
     data.responseActions && data.responseActions.length > 0
   );
+
   const handleAddActionType = useCallback(
     (item) => {
-      setAddResponseActionButtonShown(false);
-      addActionType();
+      const uniqueId = uuid.v4();
 
-      updateActionTypeId(item.id);
+      setAddResponseActionButtonShown(false);
+      const actionItem = {
+        actionTypeId: item.id,
+        params: {
+          id: uniqueId,
+        },
+      };
+      addActionType(actionItem);
     },
-    [addActionType, updateActionTypeId]
+    [addActionType]
   );
 
   const renderAddResponseActionButton = useMemo(() => {

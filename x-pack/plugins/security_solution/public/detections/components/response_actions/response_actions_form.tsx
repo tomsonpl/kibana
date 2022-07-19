@@ -5,38 +5,89 @@
  * 2.0.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
+import { isEmpty } from 'lodash';
+import type { IResponseAction } from './types';
 import { ResponseActionsHeader } from './response_actions_header';
-import { ResponseActionsList } from './response_actions_list';
 
-import type { ArrayItem } from '../../../shared_imports';
 import { useSupportedResponseActionTypes } from './use_supported_response_action_types';
-import { UseField } from '../../../shared_imports';
+import type { FieldHook } from '../../../shared_imports';
+import { UseField, useFormData } from '../../../shared_imports';
+import { ResponseActionsList } from './response_actions_list';
 
 const GhostFormField = () => <></>;
 
 interface IProps {
-  items: ArrayItem[];
-  addItem: () => void;
-  removeItem: (id: number) => void;
+  field: FieldHook<IResponseAction[]>;
 }
 
-export const ResponseActionsForm = ({ items, addItem, removeItem }: IProps) => {
+export const ResponseActionsForm = ({ field }: IProps) => {
   const supportedResponseActionTypes = useSupportedResponseActionTypes();
 
+  const actions: IResponseAction[] = useMemo(() => {
+    return !isEmpty(field.value) ? field.value : [];
+  }, [field.value]);
+
+  const handleAdd = useCallback(
+    (item: IResponseAction) => {
+      field.setValue((prevValue) => {
+        const updatedActions = [...prevValue, item];
+
+        return updatedActions;
+      });
+    },
+    [field]
+  );
+
+  const [data] = useFormData();
+
+  console.log({ data });
+
+  const setActionParamsProperty = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (key: string, value: any, index: number) => {
+      console.log({ key, value, index });
+      field.setValue((prevValue: any[]) => {
+        const updatedActions = [...prevValue];
+        updatedActions[index] = {
+          ...updatedActions[index],
+          params: {
+            ...updatedActions[index].params,
+            [key]: value,
+          },
+        };
+        return updatedActions;
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [field.setValue]
+  );
+
+  const handleRemove = useCallback(
+    (id) => {
+      field.setValue((prevValue) => {
+        const updatedActions = prevValue.filter((action) => action.params.id !== id);
+        console.log('Remove:', prevValue, updatedActions, id);
+
+        return updatedActions;
+      });
+    },
+    [field]
+  );
   const form = useMemo(() => {
     if (!supportedResponseActionTypes?.length) {
       return <UseField path="responseActions" component={GhostFormField} />;
     }
     return (
       <ResponseActionsList
-        items={items}
-        removeItem={removeItem}
+        items={actions}
+        removeItem={handleRemove}
         supportedResponseActionTypes={supportedResponseActionTypes}
-        addItem={addItem}
+        addItem={handleAdd}
+        updateFormAction={setActionParamsProperty}
       />
     );
-  }, [addItem, items, removeItem, supportedResponseActionTypes]);
+  }, [actions, handleAdd, handleRemove, supportedResponseActionTypes]);
 
   return (
     <>

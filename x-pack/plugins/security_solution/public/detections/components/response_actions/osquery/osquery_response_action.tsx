@@ -8,12 +8,12 @@
 import React, { useMemo } from 'react';
 import { EuiCode, EuiEmptyPrompt } from '@elastic/eui';
 import { FormattedMessage } from '@kbn/i18n-react';
-import type { ArrayItem } from '../../../../shared_imports';
 import { useKibana } from '../../../../common/lib/kibana';
 import { NOT_AVAILABLE, PERMISSION_DENIED, SHORT_EMPTY_TITLE } from './translations';
+import type { IResponseAction } from '../types';
 
 interface IProps {
-  item: ArrayItem;
+  item: IResponseAction;
 }
 
 export const OsqueryResponseAction = (props: IProps) => {

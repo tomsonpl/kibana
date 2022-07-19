@@ -19,7 +19,6 @@ import type { FC } from 'react';
 import React, { memo, useCallback, useEffect, useMemo } from 'react';
 
 import type { ActionVariables } from '@kbn/triggers-actions-ui-plugin/public';
-import { UseArray } from '@kbn/es-ui-shared-plugin/static/forms/hook_form_lib';
 import { ResponseActionsForm } from '../../response_actions/response_actions_form';
 import type { RuleStepProps, ActionsStepRule } from '../../../pages/detection_engine/rules/types';
 import { RuleStep } from '../../../pages/detection_engine/rules/types';
@@ -179,9 +178,7 @@ const StepRuleActionsComponent: FC<StepRuleActionsProps> = ({
       if (throttle !== stepActionsDefaultValue.throttle) {
         return (
           <>
-            <UseArray path="responseActions" readDefaultValueOnForm={true}>
-              {ResponseActionsForm}
-            </UseArray>
+            <UseField path="responseActions" component={ResponseActionsForm} />
           </>
         );
       } else {

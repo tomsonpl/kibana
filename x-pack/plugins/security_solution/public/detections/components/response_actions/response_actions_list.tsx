@@ -5,63 +5,52 @@
  * 2.0.
  */
 
-import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import type { IResponseAction } from './types';
+import { ResponseActionTypeForm } from './response_action_type_form';
 import type { ResponseActionType } from './get_supported_response_actions';
 import { ResponseActionAddButton } from './response_action_add_button';
-import { ResponseActionTypeForm } from './response_action_type_form';
-import type { ArrayItem } from '../../../shared_imports';
-import { UseField, useFormContext } from '../../../shared_imports';
 
 interface IResponseActionsListProps {
-  items: ArrayItem[];
-  removeItem: (id: number) => void;
-  addItem: () => void;
+  items: IResponseAction[];
+  removeItem: (id: string) => void;
+  addItem: (item: IResponseAction) => void;
   supportedResponseActionTypes: ResponseActionType[];
+  updateFormAction: (key: string, value: any, index: number) => void;
 }
 
-const GhostFormField = () => <></>;
-
-// eslint-disable-next-line react/display-name
-export const ResponseActionsList = React.memo(
-  ({ items, removeItem, supportedResponseActionTypes, addItem }: IResponseActionsListProps) => {
-    const actionTypeIdRef = useRef<string | null>(null);
-    const updateActionTypeId = useCallback((id) => {
-      actionTypeIdRef.current = id;
-    }, []);
-
-    const context = useFormContext();
-    const renderButton = useMemo(() => {
-      return (
-        <ResponseActionAddButton
-          supportedResponseActionTypes={supportedResponseActionTypes}
-          addActionType={addItem}
-          updateActionTypeId={updateActionTypeId}
-        />
-      );
-    }, [addItem, updateActionTypeId, supportedResponseActionTypes]);
-
-    useEffect(() => {
-      if (actionTypeIdRef.current) {
-        const index = items.length - 1;
-        const path = `responseActions[${index}].actionTypeId`;
-        context.setFieldValue(path, actionTypeIdRef.current);
-        actionTypeIdRef.current = null;
-      }
-    }, [context, items.length]);
+export const ResponseActionsList = ({
+  items,
+  removeItem,
+  supportedResponseActionTypes,
+  addItem,
+  updateFormAction,
+}: IResponseActionsListProps) => {
+  const renderButton = useMemo(() => {
     return (
-      <>
-        {items.map((actionItem, index) => {
-          return (
-            <div key={actionItem.id}>
-              <ResponseActionTypeForm item={actionItem} onDeleteAction={removeItem} />
-
-              <UseField path={`${actionItem.path}.actionTypeId`} component={GhostFormField} />
-            </div>
-          );
-        })}
-
-        {renderButton}
-      </>
+      <ResponseActionAddButton
+        supportedResponseActionTypes={supportedResponseActionTypes}
+        addActionType={addItem}
+      />
     );
-  }
-);
+  }, [addItem, supportedResponseActionTypes]);
+
+  return (
+    <>
+      {items.map((actionItem, index) => {
+        return (
+          <div key={actionItem.params.id}>
+            <ResponseActionTypeForm
+              item={actionItem}
+              onDeleteAction={removeItem}
+              index={index}
+              updateFormAction={updateFormAction}
+            />
+          </div>
+        );
+      })}
+
+      {renderButton}
+    </>
+  );
+};

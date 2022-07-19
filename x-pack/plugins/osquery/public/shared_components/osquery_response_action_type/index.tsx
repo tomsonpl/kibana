@@ -15,7 +15,6 @@ import uuid from 'uuid';
 import { convertECSMappingToFormValue } from '../../../common/schemas/common/utils';
 import { ECSMappingEditorField } from '../../packs/queries/lazy_ecs_mapping_editor_field';
 import { UseField, useFormContext } from '../../shared_imports';
-import type { ArrayItem } from '../../shared_imports';
 import { useKibana } from '../../common/lib/kibana';
 import { SavedQueriesDropdown } from '../../saved_queries/saved_queries_dropdown';
 import { LiveQueryQueryField } from '../../live_queries/form/live_query_query_field';
@@ -25,12 +24,21 @@ import { StyledEuiAccordion } from '../../components/accordion';
 const GhostFormField = () => <></>;
 
 interface IProps {
-  item: ArrayItem;
+  item: {
+    actionTypeId: string;
+    params: {
+      id: string;
+      ecs_mapping: [];
+      query: string;
+    };
+  };
+  updateAction: (key: string, value: any, index: number) => void;
 }
 
 // eslint-disable-next-line react/display-name
 export const OsqueryResponseActionParamsForm: React.FunctionComponent<IProps> = React.memo(
-  ({ item }) => {
+  ({ item, index, updateFormAction }) => {
+    console.log({ item });
     const uniqueId = useMemo(() => uuid.v4(), []);
     const permissions = useKibana().services.application.capabilities.osquery;
     const [advancedContentState, setAdvancedContentState] =
@@ -53,36 +61,22 @@ export const OsqueryResponseActionParamsForm: React.FunctionComponent<IProps> = 
           const params = {
             savedQueryId: savedQuery.savedQueryId,
             query: savedQuery.query,
-            ecs_mapping: convertECSMappingToFormValue(savedQuery.ecs_mapping),
+            ecs_mapping: [],
           };
 
-          context.updateFieldValues({
-            [item.path]: { actionTypeId: '.osquery', params },
-          });
+          // uncomment to see first 2 fields value in form
+          // context.updateFieldValues({
+          //   [`responseActions[${index}]`]: { actionTypeId: '.osquery', params },
+          // });
           const convertedECS = convertECSMappingToFormValue(savedQuery.ecs_mapping);
-          context.setFieldValue(`${item.path}.params.query`, savedQuery.query);
-          context.setFieldValue(`${item.path}.params.savedQueryId`, savedQuery.savedQueryId);
-          context.setFieldValue(`${item.path}.params.ecs_mapping`, convertedECS);
-          setTimeout(
-            () =>
-              convertedECS.forEach((ecs, index) => {
-                context.setFieldValue(`${item.path}.params.ecs_mapping[${index}].key`, ecs.key);
-                context.setFieldValue(
-                  `${item.path}.params.ecs_mapping[${index}].result.type`,
-                  ecs.result.type
-                );
-                context.setFieldValue(
-                  `${item.path}.params.ecs_mapping[${index}].result.value`,
-                  ecs.result.value
-                );
-              }),
-            1000
-          );
+          updateFormAction('query', savedQuery.query, index);
+          updateFormAction('savedQueryId', savedQuery.savedQueryId, index);
+          updateFormAction('ecs_mapping', convertedECS, index);
         } else {
-          context.setFieldValue(`${item.path}.params.savedQueryId`, null);
+          context.setFieldValue(`responseActions[${index}].params.savedQueryId`, null);
         }
       },
-      [item.path, context]
+      [context, index, updateFormAction]
     );
 
     return (
@@ -95,26 +89,19 @@ export const OsqueryResponseActionParamsForm: React.FunctionComponent<IProps> = 
             />
           </>
         )}
+        <UseField path={`responseActions[${index}].params.query`} component={LiveQueryQueryField} />
         <UseField
-          path={`${item.path}.params.query`}
-          component={LiveQueryQueryField}
-          readDefaultValueOnForm={!item.isNew}
-        />
-        <UseField
-          path={`${item.path}.actionTypeId`}
+          path={`responseActions[${index}].actionTypeId`}
           component={GhostFormField}
           defaultValue={'.osquery'}
-          readDefaultValueOnForm={!item.isNew}
         />
         <UseField
-          path={`${item.path}.params.savedQueryId`}
+          path={`responseActions[${index}].params.savedQueryId`}
           component={GhostFormField}
-          readDefaultValueOnForm={!item.isNew}
         />
         <UseField
-          path={`${item.path}.params.id`}
+          path={`responseActions[${index}].params.id`}
           component={GhostFormField}
-          readDefaultValueOnForm={!item.isNew}
           defaultValue={uniqueId}
         />
         <>
@@ -127,8 +114,8 @@ export const OsqueryResponseActionParamsForm: React.FunctionComponent<IProps> = 
           >
             <EuiSpacer size="xs" />
             <ECSMappingEditorField
-              path={`${item.path}.params.ecs_mapping`}
-              queryFieldPath={`${item.path}.params.query`}
+              path={`responseActions[${index}].params.ecs_mapping`}
+              queryFieldPath={`responseActions[${index}].params.query`}
             />
           </StyledEuiAccordion>
         </>
