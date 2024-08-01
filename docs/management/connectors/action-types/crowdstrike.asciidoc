@@ -1,16 +1,16 @@
 [[crowdstrike-action-type]]
-== Crowdstrike connector
+== CrowdStrike connector
 ++++
-<titleabbrev>Crowdstrike</titleabbrev>
+<titleabbrev>CrowdStrike</titleabbrev>
 ++++
-:frontmatter-description: Add a connector that can use the Crowdstrike API to send actions.
+:frontmatter-description: Add a connector that can use the CrowdStrike API to send actions.
 :frontmatter-tags-products: [kibana] 
 :frontmatter-tags-content-type: [how-to] 
 :frontmatter-tags-user-goals: [configure]
 
 preview::[]
 
-The Crowdstrike connector communicates with Crowdstrike Management Console via REST API.
+The CrowdStrike connector communicates with CrowdStrike Management Console via REST API.
 
 [float]
 [[define-crowdstrike-ui]]
@@ -26,15 +26,15 @@ image::management/connectors/images/crowdstrike-connector.png[Crowdstrike connec
 [[crowdstrike-connector-configuration]]
 ==== Connector configuration
 
-Crowdstrike connectors have the following configuration properties:
+CrowdStrike connectors have the following configuration properties:
 
-ClientId::  A Crowdstrike API client id.
-ClientSecret::  A Crowdstrike API client secret created by the user.
-URL:: The Crowdstrike tenant URL. If you are using the <<action-settings,`xpack.actions.allowedHosts`>> setting, make sure the hostname is added to the allowed hosts.
+CrowdStrike API URL:: The CrowdStrike tenant URL. If you are using the <<action-settings,`xpack.actions.allowedHosts`>> setting, make sure the hostname is added to the allowed hosts.
+CrowdStrike Client ID::  A CrowdStrike API client ID.
+Client Secret::  A CrowdStrike API client secret created by the user.
 
 
 [float]
 [[crowdstrike-action-parameters]]
 === Test connectors
 
-At this time, you cannot test the Crowdstrike connector.
+At this time, you cannot test the CrowdStrike connector.
