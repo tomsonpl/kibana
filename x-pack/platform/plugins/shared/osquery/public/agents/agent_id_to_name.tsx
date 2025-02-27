@@ -21,6 +21,7 @@ const AgentIdToNameComponent: React.FC<AgentIdToNameProps> = ({ agentId }) => {
   const getUrlForApp = useKibana().services.application.getUrlForApp;
   const { data } = useAgentDetails({ agentId, skip: !agentId });
 
+  console.log('test')
   return (
     <EuiToolTip position="top" content={<p>{agentId}</p>}>
       <EuiLink
