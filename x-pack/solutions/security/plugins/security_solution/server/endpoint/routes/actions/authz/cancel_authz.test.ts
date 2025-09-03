@@ -79,7 +79,6 @@ describe('validateCommandSpecificCancelPermissions', () => {
       ['upload', 'canWriteFileOperations'],
       ['scan', 'canWriteScanOperations'],
       ['runscript', 'canWriteExecuteOperations'],
-      ['cancel', 'canReadActionsLogManagement'],
     ])(
       'should pass command-specific authorization for %s command when user has permission',
       async (command, commandPermission) => {
@@ -116,7 +115,6 @@ describe('validateCommandSpecificCancelPermissions', () => {
       ['upload', 'canWriteFileOperations'],
       ['scan', 'canWriteScanOperations'],
       ['runscript', 'canWriteExecuteOperations'],
-      ['cancel', 'canReadActionsLogManagement'],
     ])(
       'should fail command-specific authorization for %s command when user lacks permission',
       async (command, commandPermission) => {
@@ -141,6 +139,70 @@ describe('validateCommandSpecificCancelPermissions', () => {
         ).rejects.toThrow(EndpointAuthorizationError);
       }
     );
+
+    // Special test cases for cancel operations (nested cancel operations are not supported)
+    describe('cancel operation authorization', () => {
+      it('should pass authorization when user can perform the original action being cancelled', async () => {
+        mockedFetchActionRequestById.mockResolvedValue({
+          EndpointActions: {
+            data: { command: 'isolate' }, // Cancelling an isolate action
+          },
+        } as unknown as LogsEndpointAction);
+
+        const authz = getEndpointAuthzInitialStateMock({
+          canIsolateHost: true, // User can isolate, so they can cancel isolate
+        });
+        mockContext.securitySolution.getEndpointAuthz.mockResolvedValue(authz);
+
+        await expect(
+          validateCommandSpecificCancelPermissions(
+            mockContext as unknown as SecuritySolutionRequestHandlerContext,
+            mockRequest,
+            endpointContext,
+            mockLogger
+          )
+        ).resolves.not.toThrow();
+      });
+
+      it('should fail authorization when user cannot perform the original action being cancelled', async () => {
+        mockedFetchActionRequestById.mockResolvedValue({
+          EndpointActions: {
+            data: { command: 'isolate' }, // Cancelling an isolate action
+          },
+        } as unknown as LogsEndpointAction);
+
+        const authz = getEndpointAuthzInitialStateMock({
+          canIsolateHost: false, // User cannot isolate, so they cannot cancel isolate
+        });
+        mockContext.securitySolution.getEndpointAuthz.mockResolvedValue(authz);
+
+        await expect(
+          validateCommandSpecificCancelPermissions(
+            mockContext as unknown as SecuritySolutionRequestHandlerContext,
+            mockRequest,
+            endpointContext,
+            mockLogger
+          )
+        ).rejects.toThrow(EndpointAuthorizationError);
+      });
+
+      it('should not allow cancelling a cancel action (nested cancellation)', async () => {
+        mockedFetchActionRequestById.mockResolvedValue({
+          EndpointActions: {
+            data: { command: 'cancel' }, // Trying to cancel a cancel action
+          },
+        } as unknown as LogsEndpointAction);
+
+        await expect(
+          validateCommandSpecificCancelPermissions(
+            mockContext as unknown as SecuritySolutionRequestHandlerContext,
+            mockRequest,
+            endpointContext,
+            mockLogger
+          )
+        ).rejects.toThrow(EndpointAuthorizationError);
+      });
+    });
   });
 
   describe('error handling', () => {

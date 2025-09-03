@@ -13,6 +13,7 @@ import type { ProductFeaturesService } from '../../../../server/lib/product_feat
 import {
   RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ,
   RESPONSE_ACTION_API_COMMAND_TO_CONSOLE_COMMAND_MAP,
+  DYNAMIC_COMMAND_BASED,
 } from '../response_actions/constants';
 import type { LicenseService } from '../../../license';
 import type { EndpointAuthz, EndpointAuthzKeyList } from '../../types/authz';
@@ -184,13 +185,21 @@ export const calculateEndpointAuthz = (
   // of the response actions except `release`. Sole access to `release` is something
   // that is supported for a user in a license downgrade scenario, and in that case, we don't want
   // to allow access to Response Console.
+  // Note: We filter out dynamic permissions since they can't be evaluated without context
+  const staticAuthzValues = Object.values(
+    omit(RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ, ['release'])
+  ).filter((authzKey) => authzKey !== DYNAMIC_COMMAND_BASED);
+
+  // Check if user has any static response action permissions
+  const hasStaticResponseActionAccess = staticAuthzValues.some((responseActionAuthzKey) => {
+    return authz[responseActionAuthzKey as keyof EndpointAuthz];
+  });
+
+  // For dynamic permissions (like cancel), we still want to grant console access
+  // if users have any response action permissions, since they can use cancel functionality
+  // This maintains the existing behavior while supporting the new dynamic authorization model
   authz.canAccessResponseConsole =
-    isEnterpriseLicense &&
-    Object.values(omit(RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ, 'release')).some(
-      (responseActionAuthzKey) => {
-        return authz[responseActionAuthzKey];
-      }
-    );
+    isEnterpriseLicense && (hasStaticResponseActionAccess || hasAnyResponseActionPrivilege(authz));
 
   return authz;
 };
@@ -266,9 +275,24 @@ export const canFetchPackageAndAgentPolicies = (capabilities: Capabilities): boo
 };
 
 /**
+ * Checks if the user has any response action privileges (excluding release-only access).
+ * This utility consolidates the logic for determining whether a user can perform any response actions.
+ */
+export const hasAnyResponseActionPrivilege = (authz: EndpointAuthz): boolean => {
+  return (
+    authz.canIsolateHost ||
+    authz.canKillProcess ||
+    authz.canSuspendProcess ||
+    authz.canGetRunningProcesses ||
+    authz.canWriteFileOperations ||
+    authz.canWriteExecuteOperations ||
+    authz.canWriteScanOperations
+  );
+};
+
+/**
  * Determines the required permissions to cancel a specific action based on its command type permissions to cancel actions.
  **/
-
 export const getRequiredCancelPermissions = (
   command: ResponseActionsApiCommandNames
 ): EndpointAuthzKeyList[number] => {
@@ -278,5 +302,11 @@ export const getRequiredCancelPermissions = (
     throw new Error(`Unknown or unsupported command for cancellation: ${command}`);
   }
 
-  return RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[consoleCommand];
+  const authzKey = RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[consoleCommand];
+
+  if (authzKey === DYNAMIC_COMMAND_BASED) {
+    throw new Error(`Cannot resolve dynamic permission for command: ${command} without context`);
+  }
+
+  return authzKey;
 };

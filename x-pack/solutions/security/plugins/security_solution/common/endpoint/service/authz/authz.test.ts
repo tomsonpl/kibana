@@ -461,7 +461,8 @@ describe('Endpoint Authz service', () => {
       ['upload', 'canWriteFileOperations'],
       ['scan', 'canWriteScanOperations'],
       ['runscript', 'canWriteExecuteOperations'],
-      ['cancel', 'canReadActionsLogManagement'],
+      // Note: cancel commands are not tested here since getRequiredCancelPermissions()
+      // should be called with the target command being cancelled, not 'cancel' itself
     ])('should return correct permissions for %s command', (command, expectedCommandSpecific) => {
       const result = getRequiredCancelPermissions(command);
 

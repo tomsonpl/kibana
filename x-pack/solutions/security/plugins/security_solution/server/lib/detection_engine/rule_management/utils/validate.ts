@@ -19,7 +19,9 @@ import {
 import {
   RESPONSE_ACTION_API_COMMAND_TO_CONSOLE_COMMAND_MAP,
   RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ,
+  DYNAMIC_COMMAND_BASED,
 } from '../../../../../common/endpoint/service/response_actions/constants';
+import { hasAnyResponseActionPrivilege } from '../../../../../common/endpoint/service/authz/authz';
 import type { SecuritySolutionApiRequestHandlerContext } from '../../../..';
 import { CustomHttpRequestError } from '../../../../utils/custom_http_request_error';
 import { hasValidRuleType, type RuleAlertType, type RuleParams } from '../../rule_schema';
@@ -85,18 +87,31 @@ export const validateResponseActionsPermissions = async (
     if (!('command' in action?.params)) {
       return;
     }
-    const authzPropName =
-      RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[
-        RESPONSE_ACTION_API_COMMAND_TO_CONSOLE_COMMAND_MAP[action.params.command]
-      ];
+    const consoleCommand =
+      RESPONSE_ACTION_API_COMMAND_TO_CONSOLE_COMMAND_MAP[action.params.command];
+    const authzPropName = RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[consoleCommand];
 
-    const isValid = endpointAuthz[authzPropName];
+    // Handle dynamic authorization (currently only cancel)
+    if (authzPropName === DYNAMIC_COMMAND_BASED) {
+      // For response actions with dynamic permissions (cancel), we need to validate
+      // that the user has at least one response action permission
+      // Note: Cancel actions are edge cases in automated rules, but we handle them safely
+      if (!hasAnyResponseActionPrivilege(endpointAuthz)) {
+        throw new CustomHttpRequestError(
+          `User is not authorized to configure ${action.params.command} response actions`,
+          403
+        );
+      }
+    } else {
+      // Handle static authorization
+      const isValid = endpointAuthz[authzPropName];
 
-    if (!isValid) {
-      throw new CustomHttpRequestError(
-        `User is not authorized to change ${action.params.command} response actions`,
-        403
-      );
+      if (!isValid) {
+        throw new CustomHttpRequestError(
+          `User is not authorized to change ${action.params.command} response actions`,
+          403
+        );
+      }
     }
   });
 };

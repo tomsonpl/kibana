@@ -99,6 +99,12 @@ export type ResponseConsoleRbacControls =
   | 'readActionsLogManagement';
 
 /**
+ * Sentinel value used to indicate that a command requires dynamic, context-dependent authorization
+ * rather than a static permission mapping.
+ */
+export const DYNAMIC_COMMAND_BASED = 'DYNAMIC_COMMAND_BASED' as const;
+
+/**
  * maps the console command to the RBAC control (kibana feature control) that is required to access it via console
  */
 export const RESPONSE_CONSOLE_ACTION_COMMANDS_TO_RBAC_FEATURE_CONTROL: Record<
@@ -167,10 +173,19 @@ export const RESPONSE_CONSOLE_ACTION_COMMANDS_TO_ENDPOINT_CAPABILITY = Object.fr
 });
 
 /**
- * The list of console commands mapped to the required EndpointAuthz to access that command
+ * Authorization types for response action commands
+ */
+type StaticAuthzKey = EndpointAuthzKeyList[number];
+type DynamicAuthzKey = typeof DYNAMIC_COMMAND_BASED;
+export type AuthzKey = StaticAuthzKey | DynamicAuthzKey;
+
+/**
+ * The list of console commands mapped to the required EndpointAuthz to access that command.
+ * Most commands have static authorization requirements, but some (like 'cancel') require
+ * dynamic, context-dependent authorization.
  */
 export const RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ = Object.freeze<
-  Record<ConsoleResponseActionCommands, EndpointAuthzKeyList[number]>
+  Record<ConsoleResponseActionCommands, AuthzKey>
 >({
   isolate: 'canIsolateHost',
   release: 'canUnIsolateHost',
@@ -182,8 +197,50 @@ export const RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ = Object.freeze<
   'suspend-process': 'canSuspendProcess',
   scan: 'canWriteScanOperations',
   runscript: 'canWriteExecuteOperations',
-  cancel: 'canReadActionsLogManagement',
+  cancel: DYNAMIC_COMMAND_BASED,
 });
+
+/**
+ * Resolves the required permission for a console command, supporting both static and dynamic authorization.
+ *
+ * @param command - The console command to resolve permissions for
+ * @param context - Optional context for dynamic resolution (e.g., target action command for cancel operations)
+ * @returns The required authorization key for the command
+ * @throws Error if dynamic resolution is required but context is missing
+ */
+export const resolveCommandPermission = (
+  command: ConsoleResponseActionCommands,
+  context?: { targetActionCommand?: ResponseActionsApiCommandNames }
+): EndpointAuthzKeyList[number] => {
+  const authzKey = RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[command];
+
+  // Handle static permissions
+  if (authzKey !== DYNAMIC_COMMAND_BASED) {
+    return authzKey;
+  }
+
+  // Handle dynamic permissions
+  if (command === 'cancel') {
+    if (!context?.targetActionCommand) {
+      throw new Error(
+        'Cancel command requires target action command context for permission resolution'
+      );
+    }
+
+    // Dynamic resolution for cancel - delegate to existing logic
+    const consoleCommand =
+      RESPONSE_ACTION_API_COMMAND_TO_CONSOLE_COMMAND_MAP[context.targetActionCommand];
+    const targetPermission = RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ[consoleCommand];
+
+    if (targetPermission === DYNAMIC_COMMAND_BASED) {
+      throw new Error(`Cannot resolve nested dynamic permission for command: ${consoleCommand}`);
+    }
+
+    return targetPermission;
+  }
+
+  throw new Error(`Unsupported dynamic command: ${command}`);
+};
 
 // 4 hrs in seconds
 // 4 * 60 * 60
