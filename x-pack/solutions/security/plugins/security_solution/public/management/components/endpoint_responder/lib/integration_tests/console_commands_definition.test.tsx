@@ -221,4 +221,79 @@ describe('When displaying Endpoint Response Actions', () => {
       expect(commandsInPanel).toEqual(['isolate', 'release']);
     });
   });
+
+  describe('for cancel command privileges', () => {
+    it('should allow cancel command when user has response action privileges', () => {
+      (ExperimentalFeaturesService.get as jest.Mock).mockReturnValue({
+        microsoftDefenderEndpointCancelEnabled: true,
+      });
+
+      const privilegesWithIsolateHost = {
+        ...getEndpointPrivilegesInitialStateMock(),
+        canIsolateHost: true,
+      };
+
+      commands = getEndpointConsoleCommands({
+        agentType: 'microsoft_defender_endpoint',
+        endpointAgentId: '123',
+        endpointCapabilities: endpointMetadata.Endpoint.capabilities ?? [],
+        endpointPrivileges: privilegesWithIsolateHost,
+        platform: 'linux',
+      });
+
+      const cancelCommand = commands.find((cmd) => cmd.name === 'cancel');
+      expect(cancelCommand).toBeDefined();
+      expect(cancelCommand?.helpHidden).toBe(false);
+      
+      // Test the validation function
+      if (cancelCommand?.validate) {
+        const mockCommand = {
+          commandDefinition: cancelCommand,
+          args: { hasArg: () => false },
+        } as any;
+        const validationResult = cancelCommand.validate(mockCommand);
+        expect(validationResult).toBe(true);
+      }
+    });
+
+    it('should deny cancel command when user has no response action privileges', () => {
+      (ExperimentalFeaturesService.get as jest.Mock).mockReturnValue({
+        microsoftDefenderEndpointCancelEnabled: true,
+      });
+
+      const privilegesWithoutResponseActions = {
+        ...getEndpointPrivilegesInitialStateMock(),
+        canIsolateHost: false,
+        canKillProcess: false,
+        canSuspendProcess: false,
+        canGetRunningProcesses: false,
+        canWriteFileOperations: false,
+        canWriteExecuteOperations: false,
+        canWriteScanOperations: false,
+        canWriteRunScript: false,
+      };
+
+      commands = getEndpointConsoleCommands({
+        agentType: 'microsoft_defender_endpoint',
+        endpointAgentId: '123',
+        endpointCapabilities: endpointMetadata.Endpoint.capabilities ?? [],
+        endpointPrivileges: privilegesWithoutResponseActions,
+        platform: 'linux',
+      });
+
+      const cancelCommand = commands.find((cmd) => cmd.name === 'cancel');
+      expect(cancelCommand).toBeDefined();
+      expect(cancelCommand?.helpHidden).toBe(true);
+      
+      // Test the validation function
+      if (cancelCommand?.validate) {
+        const mockCommand = {
+          commandDefinition: cancelCommand,
+          args: { hasArg: () => false },
+        } as any;
+        const validationResult = cancelCommand.validate(mockCommand);
+        expect(validationResult).toContain('You do not have the required privileges');
+      }
+    });
+  });
 });

@@ -18,6 +18,7 @@ import { RunScriptActionResult } from '../command_render_components/run_script_a
 import type { CommandArgDefinition } from '../../console/types';
 import { isAgentTypeAndActionSupported } from '../../../../common/lib/endpoint';
 import { getRbacControl } from '../../../../../common/endpoint/service/response_actions/utils';
+import { hasAnyResponseActionPrivilege } from '../../../../../common/endpoint/service/authz/authz';
 import { UploadActionResult } from '../command_render_components/upload_action';
 import { ArgumentFileSelector } from '../../console_argument_selectors';
 import type { ParsedArgData } from '../../console/service/types';
@@ -118,7 +119,13 @@ const capabilitiesAndPrivilegesValidator = (
       }
     }
 
-    if (!getRbacControl({ commandName, privileges })) {
+    // For cancel command with dynamic authorization, check if user has any response action privileges
+    // since they could potentially cancel actions they can execute
+    if (commandName === 'cancel') {
+      if (!hasAnyResponseActionPrivilege(privileges)) {
+        errorMessage = errorMessage.concat(INSUFFICIENT_PRIVILEGES_FOR_COMMAND);
+      }
+    } else if (!getRbacControl({ commandName, privileges })) {
       errorMessage = errorMessage.concat(INSUFFICIENT_PRIVILEGES_FOR_COMMAND);
     }
 
@@ -567,10 +574,8 @@ export const getEndpointConsoleCommands = ({
       helpDisabled:
         !doesEndpointSupportCommand('cancel') || agentType !== 'microsoft_defender_endpoint',
       helpHidden:
-        !getRbacControl({
-          commandName: 'cancel',
-          privileges: endpointPrivileges,
-        }) || agentType !== 'microsoft_defender_endpoint',
+        !hasAnyResponseActionPrivilege(endpointPrivileges) ||
+        agentType !== 'microsoft_defender_endpoint',
       validate: capabilitiesAndPrivilegesValidator(agentType),
     });
   }

@@ -7,7 +7,11 @@
 
 import { uniq } from 'lodash/fp';
 import type { RequestHandler } from '@kbn/core/server';
-import { RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ } from '../../../../common/endpoint/service/response_actions/constants';
+import {
+  RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ,
+  DYNAMIC_COMMAND_BASED,
+} from '../../../../common/endpoint/service/response_actions/constants';
+import type { EndpointAuthzKeyList } from '../../../../common/endpoint/types/authz';
 import { ACTION_STATE_ROUTE } from '../../../../common/endpoint/constants';
 import type {
   SecuritySolutionPluginRouter,
@@ -24,8 +28,11 @@ export function registerActionStateRoutes(
   endpointContext: EndpointAppContext,
   canEncrypt?: boolean
 ) {
+  // Filter out dynamic permissions for route authorization aggregation
   const responseActionAuthzNames = uniq(
-    Object.values(RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ)
+    Object.values(RESPONSE_CONSOLE_ACTION_COMMANDS_TO_REQUIRED_AUTHZ).filter(
+      (authzKey): authzKey is EndpointAuthzKeyList[number] => authzKey !== DYNAMIC_COMMAND_BASED
+    )
   );
 
   router.versioned
