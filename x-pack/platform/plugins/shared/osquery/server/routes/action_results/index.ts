@@ -10,10 +10,12 @@ import type { DataRequestHandlerContext } from '@kbn/data-plugin/server';
 
 import type { OsqueryAppContext } from '../../lib/osquery_app_context_services';
 import { getActionResultsRoute } from './get_action_results_route';
+import { exportCsvRoute } from './export_csv_route';
 
 export const initActionResultsRoutes = (
   router: IRouter<DataRequestHandlerContext>,
   context: OsqueryAppContext
 ) => {
   getActionResultsRoute(router, context);
+  exportCsvRoute(router, context);
 };

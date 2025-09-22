@@ -41,6 +41,8 @@ import {
 } from '../packs/pack_queries_status_table';
 import { PLUGIN_NAME as OSQUERY_PLUGIN_NAME } from '../../common';
 import { AddToCaseWrapper } from '../cases/add_to_cases';
+import { CsvExportOptions } from './components/csv_export_options';
+import { useCsvExport } from './hooks/use_csv_export';
 
 const DataContext = createContext<ResultEdges>([]);
 
@@ -80,7 +82,6 @@ const ResultsTableComponent: React.FC<ResultsTableComponentProps> = ({
   startDate,
   endDate,
   liveQueryActionId,
-  error,
 }) => {
   const [isLive, setIsLive] = useState(true);
 
@@ -134,7 +135,7 @@ const ResultsTableComponent: React.FC<ResultsTableComponentProps> = ({
   ]);
   const [columns, setColumns] = useState<EuiDataGridColumn[]>([]);
 
-  const { data: allResultsData, isLoading } = useAllResults({
+  const { data: allResultsData, isLoading, error } = useAllResults({
     actionId,
     liveQueryActionId,
     startDate,
@@ -143,8 +144,23 @@ const ResultsTableComponent: React.FC<ResultsTableComponentProps> = ({
     isLive,
     sort: sortingColumns.map((sortedColumn) => ({
       field: sortedColumn.id,
-      direction: sortedColumn.direction as Direction,
+      direction: (sortedColumn.direction === 'asc' ? Direction.asc : Direction.desc),
     })),
+  });
+
+  const { exportToCsv, isExporting } = useCsvExport({
+    actionId,
+    data: allResultsData?.edges || [],
+    columns,
+    ecsMapping,
+    currentPageData: allResultsData?.edges || [],
+    liveQueryActionId,
+    startDate,
+    sort: sortingColumns.map((sortedColumn) => ({
+      field: sortedColumn.id,
+      direction: (sortedColumn.direction === 'asc' ? Direction.asc : Direction.desc),
+    })),
+    kuery: undefined, // Add kuery if needed later
   });
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
@@ -365,13 +381,31 @@ const ResultsTableComponent: React.FC<ResultsTableComponentProps> = ({
             startDate={startDate}
           />
           <AddToTimelineButton field="action_id" value={actionId} />
+          <CsvExportOptions
+            onExport={exportToCsv}
+            isExporting={isExporting}
+            disabled={!allResultsData?.edges?.length}
+            totalRows={allResultsData?.total || 0}
+            currentPageRows={allResultsData?.edges?.length || 0}
+          />
           {liveQueryActionId && (
             <AddToCaseWrapper actionId={liveQueryActionId} queryId={actionId} agentIds={agentIds} />
           )}
         </>
       ),
     }),
-    [actionId, agentIds, appName, endDate, liveQueryActionId, startDate]
+    [
+      actionId,
+      agentIds,
+      appName,
+      endDate,
+      liveQueryActionId,
+      startDate,
+      exportToCsv,
+      isExporting,
+      allResultsData?.edges?.length,
+      allResultsData?.total,
+    ]
   );
 
   useEffect(
