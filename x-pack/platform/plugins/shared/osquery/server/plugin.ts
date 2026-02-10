@@ -39,7 +39,7 @@ import {
   getPackagePolicyDeleteCallback,
   getAgentPolicyPostUpdateCallback,
 } from './lib/fleet_integration';
-import { TelemetryEventsSender } from './lib/telemetry/sender';
+import { OsqueryTelemetryService } from './lib/telemetry/telemetry_service';
 import { TelemetryReceiver } from './lib/telemetry/receiver';
 import { initializeTransformsIndices } from './create_indices/create_transforms_indices';
 import { initializeTransforms } from './create_transforms/create_transforms';
@@ -54,14 +54,14 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
   private context: PluginInitializerContext;
   private readonly osqueryAppContextService = new OsqueryAppContextService();
   private readonly telemetryReceiver: TelemetryReceiver;
-  private readonly telemetryEventsSender: TelemetryEventsSender;
+  private readonly telemetryService: OsqueryTelemetryService;
   private licenseSubscription: Subscription | null = null;
   private createActionService: ReturnType<typeof createActionService> | null = null;
 
   constructor(private readonly initializerContext: PluginInitializerContext) {
     this.context = initializerContext;
     this.logger = initializerContext.logger.get();
-    this.telemetryEventsSender = new TelemetryEventsSender(this.logger);
+    this.telemetryService = new OsqueryTelemetryService(this.logger);
     this.telemetryReceiver = new TelemetryReceiver(this.logger);
   }
 
@@ -74,6 +74,11 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
 
     const router = core.http.createRouter<DataRequestHandlerContext>();
 
+    this.telemetryService.setup(this.telemetryReceiver, plugins.taskManager, core.analytics);
+
+    // Create a temporary client for the context (will be replaced in start)
+    const telemetryClient = this.telemetryService.start();
+
     const osqueryContext: OsqueryAppContext = {
       logFactory: this.context.logger,
       getStartServices: core.getStartServices,
@@ -81,7 +86,8 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
       config: (): ConfigType => config,
       experimentalFeatures,
       security: plugins.security,
-      telemetryEventsSender: this.telemetryEventsSender,
+      telemetry: telemetryClient,
+      completionTracker: this.telemetryService.getCompletionTracker(),
       licensing: plugins.licensing,
     };
 
@@ -105,8 +111,6 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
         // it shouldn't reject, but just in case
       });
 
-    this.telemetryEventsSender.setup(this.telemetryReceiver, plugins.taskManager, core.analytics);
-
     plugins.cases?.attachmentFramework.registerExternalReference({ id: CASE_ATTACHMENT_TYPE_ID });
 
     return {
@@ -129,7 +133,8 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
 
     this.telemetryReceiver.start(core, this.osqueryAppContextService);
 
-    this.telemetryEventsSender.start(plugins.taskManager, this.telemetryReceiver);
+    // Start telemetry tasks (tasks were already registered in setup)
+    this.telemetryService.start(plugins.taskManager, this.telemetryReceiver);
 
     plugins.fleet
       ?.fleetSetupCompleted()
@@ -211,7 +216,7 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
 
   public stop() {
     this.logger.debug('osquery: Stopped');
-    this.telemetryEventsSender.stop();
+    this.telemetryService.stop();
     this.osqueryAppContextService.stop();
     this.licenseSubscription?.unsubscribe();
     this.createActionService?.stop();

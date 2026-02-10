@@ -7,10 +7,11 @@
 
 import { EuiButtonEmpty, EuiFlexGroup, EuiFlexItem, EuiText } from '@elastic/eui';
 import { FormattedMessage } from '@kbn/i18n-react';
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useLiveQueryDetails } from '../../../actions/use_live_query_details';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
@@ -23,6 +24,11 @@ const tableWrapperCss = {
 const LiveQueryDetailsPageComponent = () => {
   const { actionId } = useParams<{ actionId: string }>();
   useBreadcrumbs('live_query_details', { liveQueryId: actionId });
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'live_query_details', timestamp: new Date().toISOString() });
+  }, [telemetry]);
   const liveQueryListProps = useRouterNavigate('live_queries');
   const [isLive, setIsLive] = useState(false);
   const { data } = useLiveQueryDetails({ actionId, isLive });
@@ -56,6 +62,19 @@ const LiveQueryDetailsPageComponent = () => {
   useLayoutEffect(() => {
     setIsLive(() => !(data?.status === 'completed'));
   }, [data?.status]);
+
+  useEffect(() => {
+    if (data?.queries?.length) {
+      try {
+        telemetry.reportResultsViewed({
+          action_id: actionId,
+          query_count: data.queries.length,
+        });
+      } catch {
+        // Telemetry should never block the main flow
+      }
+    }
+  }, [actionId, data?.queries?.length, telemetry]);
 
   return (
     <WithHeaderLayout leftColumn={LeftColumn} rightColumnGrow={false}>

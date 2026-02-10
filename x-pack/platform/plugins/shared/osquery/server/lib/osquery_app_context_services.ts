@@ -27,7 +27,8 @@ import type { FleetActionsClientInterface } from '@kbn/fleet-plugin/server/servi
 import type { Space, SpacesServiceStart } from '@kbn/spaces-plugin/server';
 import type { ConfigType } from '../../common/config';
 import type { ExperimentalFeatures } from '../../common';
-import type { TelemetryEventsSender } from './telemetry/sender';
+import type { OsqueryTelemetryClient } from './telemetry/telemetry_client';
+import type { CompletionTracker } from './telemetry/completion_tracker';
 import { getIntegrationNamespaces } from '../utils/get_integration_namespaces';
 
 export type OsqueryAppContextServiceStartContract = Partial<
@@ -134,7 +135,8 @@ export interface OsqueryAppContext {
   experimentalFeatures: ExperimentalFeatures;
   security: SecurityPluginStart;
   getStartServices: CoreSetup['getStartServices'];
-  telemetryEventsSender: TelemetryEventsSender;
+  telemetry: OsqueryTelemetryClient;
+  completionTracker?: CompletionTracker;
   licensing: LicensingPluginSetup;
   /**
    * Object readiness is tied to plugin start method

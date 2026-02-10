@@ -8,7 +8,7 @@
 import type { Logger } from '@kbn/core/server';
 import { TELEMETRY_EBT_SAVED_QUERY_EVENT } from '../constants';
 import { templateSavedQueries } from '../helpers';
-import type { TelemetryEventsSender } from '../sender';
+import type { OsqueryTelemetryClient } from '../telemetry_client';
 import type { TelemetryReceiver } from '../receiver';
 
 export function createTelemetrySavedQueriesTaskConfig() {
@@ -22,7 +22,7 @@ export function createTelemetrySavedQueriesTaskConfig() {
       taskId: string,
       logger: Logger,
       receiver: TelemetryReceiver,
-      sender: TelemetryEventsSender
+      sender: OsqueryTelemetryClient
     ) => {
       const savedQueriesResponse = await receiver.fetchSavedQueries();
 

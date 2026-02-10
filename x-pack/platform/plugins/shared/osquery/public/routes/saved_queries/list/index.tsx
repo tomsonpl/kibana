@@ -16,7 +16,7 @@ import {
   EuiText,
   EuiToolTip,
 } from '@elastic/eui';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { i18n } from '@kbn/i18n';
 import { FormattedMessage } from '@kbn/i18n-react';
 import { useHistory } from 'react-router-dom';
@@ -27,6 +27,7 @@ import { Direction } from '../../../../common/search_strategy';
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
 import { useKibana, useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { useSavedQueries } from '../../../saved_queries/use_saved_queries';
 
 export interface SavedQuerySO {
@@ -132,8 +133,13 @@ const EditButton = React.memo(EditButtonComponent);
 
 const SavedQueriesPageComponent = () => {
   const permissions = useKibana().services.application.capabilities.osquery;
+  const telemetry = useOsqueryTelemetry();
 
   useBreadcrumbs('saved_queries');
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'saved_queries_list', timestamp: new Date().toISOString() });
+  }, [telemetry]);
   const newQueryLinkProps = useRouterNavigate('saved_queries/new');
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);

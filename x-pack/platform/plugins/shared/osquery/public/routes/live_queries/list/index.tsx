@@ -7,15 +7,21 @@
 
 import { EuiButton, EuiFlexGroup, EuiFlexItem, EuiText } from '@elastic/eui';
 import { FormattedMessage } from '@kbn/i18n-react';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { useKibana, useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { ActionsTable } from '../../../actions/actions_table';
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
 
 const LiveQueriesPageComponent = () => {
   useBreadcrumbs('live_queries');
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'live_queries_list', timestamp: new Date().toISOString() });
+  }, [telemetry]);
 
   const LeftColumn = useMemo(
     () => (

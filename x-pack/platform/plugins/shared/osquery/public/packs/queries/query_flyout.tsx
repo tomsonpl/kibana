@@ -17,10 +17,13 @@ import {
   EuiButtonEmpty,
   EuiButton,
 } from '@elastic/eui';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { i18n } from '@kbn/i18n';
 import { FormattedMessage } from '@kbn/i18n-react';
+import type { FieldErrors } from 'react-hook-form';
 import { FormProvider } from 'react-hook-form';
+
+import { useOsqueryTelemetry } from '../../lib/telemetry';
 
 import { DEFAULT_PLATFORM, QUERY_TIMEOUT } from '../../../common/constants';
 import {
@@ -58,6 +61,8 @@ const QueryFlyoutComponent: React.FC<QueryFlyoutProps> = ({
   onClose,
 }) => {
   const permissions = useKibana().services.application.capabilities.osquery;
+  const telemetry = useOsqueryTelemetry();
+  const reportedErrorsRef = useRef<Set<string>>(new Set());
   const [isEditMode] = useState(!!defaultValue);
   const { serializer, idSet, ...hooksForm } = usePackQueryForm({
     uniqueQueryIds,
@@ -74,6 +79,22 @@ const QueryFlyoutComponent: React.FC<QueryFlyoutProps> = ({
     await onSave(serializedData);
     onClose();
   };
+
+  const onFormError = useCallback(
+    (formErrors: FieldErrors<PackQueryFormData>) => {
+      const errorFields = Object.keys(formErrors).sort();
+      const errorKey = errorFields.join(',');
+      if (!reportedErrorsRef.current.has(errorKey)) {
+        reportedErrorsRef.current.add(errorKey);
+        try {
+          telemetry.reportFormValidationFailed({ form_type: 'pack_query', error_fields: errorFields });
+        } catch {
+          // Telemetry should never block the main flow
+        }
+      }
+    },
+    [telemetry]
+  );
 
   const handleSetQueryValue = useCallback(
     (savedQuery: any) => {
@@ -191,7 +212,7 @@ const QueryFlyoutComponent: React.FC<QueryFlyoutProps> = ({
             <EuiButton
               data-test-subj="query-flyout-save-button"
               isLoading={isSubmitting}
-              onClick={handleSubmit(onSubmit)}
+              onClick={handleSubmit(onSubmit, onFormError)}
               fill
             >
               <FormattedMessage

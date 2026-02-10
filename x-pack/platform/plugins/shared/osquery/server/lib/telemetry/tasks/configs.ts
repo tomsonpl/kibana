@@ -8,7 +8,7 @@
 import type { Logger } from '@kbn/core/server';
 import { TELEMETRY_EBT_CONFIG_EVENT } from '../constants';
 import { templateConfigs } from '../helpers';
-import type { TelemetryEventsSender } from '../sender';
+import type { OsqueryTelemetryClient } from '../telemetry_client';
 import type { TelemetryReceiver } from '../receiver';
 
 export function createTelemetryConfigsTaskConfig() {
@@ -22,7 +22,7 @@ export function createTelemetryConfigsTaskConfig() {
       taskId: string,
       logger: Logger,
       receiver: TelemetryReceiver,
-      sender: TelemetryEventsSender
+      sender: OsqueryTelemetryClient
     ) => {
       const configsResponse = await receiver.fetchConfigs();
 

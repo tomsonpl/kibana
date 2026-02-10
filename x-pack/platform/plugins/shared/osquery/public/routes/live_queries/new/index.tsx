@@ -14,6 +14,7 @@ import qs from 'query-string';
 import { isArray } from 'lodash';
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { LiveQuery } from '../../../live_queries';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
 
@@ -23,6 +24,11 @@ interface LocationState {
 
 const NewLiveQueryPageComponent = () => {
   useBreadcrumbs('live_query_new');
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'new_live_query', timestamp: new Date().toISOString() });
+  }, [telemetry]);
   const { replace } = useHistory();
   const location = useLocation<LocationState>();
   const liveQueryListProps = useRouterNavigate('live_queries');

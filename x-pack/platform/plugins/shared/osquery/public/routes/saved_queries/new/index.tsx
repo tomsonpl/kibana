@@ -6,10 +6,11 @@
  */
 
 import { EuiButtonEmpty, EuiFlexGroup, EuiFlexItem, EuiText } from '@elastic/eui';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { FormattedMessage } from '@kbn/i18n-react';
 
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
 import { NewSavedQueryForm } from './form';
@@ -17,6 +18,11 @@ import { useCreateSavedQuery } from '../../../saved_queries/use_create_saved_que
 
 const NewSavedQueryPageComponent = () => {
   useBreadcrumbs('saved_query_new');
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'new_saved_query', timestamp: new Date().toISOString() });
+  }, [telemetry]);
   const savedQueryListProps = useRouterNavigate('saved_queries');
 
   const { mutateAsync } = useCreateSavedQuery({ withRedirect: true });

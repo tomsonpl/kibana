@@ -17,7 +17,6 @@ import { packSavedObjectType } from '../../../common/types';
 import type { OsqueryAppContext } from '../../lib/osquery_app_context_services';
 import { convertSOQueriesToPack } from '../../routes/pack/utils';
 import { ACTIONS_INDEX, QUERY_TIMEOUT } from '../../../common/constants';
-import { TELEMETRY_EBT_LIVE_QUERY_EVENT } from '../../lib/telemetry/constants';
 import type { PackSavedObject } from '../../common/types';
 import { CustomHttpRequestError } from '../../common/error';
 import { getInternalSavedObjectsClientForSpaceId } from '../../utils/get_internal_saved_object_client';
@@ -164,10 +163,26 @@ export const createActionHandler = async (
     });
   }
 
-  osqueryContext.telemetryEventsSender.reportEvent(TELEMETRY_EBT_LIVE_QUERY_EVENT, {
-    ...omit(osqueryAction, ['type', 'input_type', 'user_id', 'error']),
-    agents: osqueryAction.agents.length,
-  });
+  try {
+    const queriesArray = Array.isArray(osqueryAction.queries) ? osqueryAction.queries : [];
+    const hasEcsMapping = queriesArray.some(
+      (q: Record<string, unknown>) => q.ecs_mapping && Object.keys(q.ecs_mapping as object).length > 0
+    );
+    const ecsMappingFieldCount = queriesArray.reduce(
+      (count: number, q: Record<string, unknown>) =>
+        count + (q.ecs_mapping ? Object.keys(q.ecs_mapping as object).length : 0),
+      0
+    );
+
+    osqueryContext.telemetry.reportLiveQueryCreated({
+      ...omit(osqueryAction, ['type', 'input_type', 'user_id', 'error']),
+      agents: osqueryAction.agents.length,
+      has_ecs_mapping: hasEcsMapping,
+      ecs_mapping_field_count: ecsMappingFieldCount,
+    });
+  } catch (e) {
+    // Telemetry reporting should never block the main flow
+  }
 
   return {
     response: osqueryAction,

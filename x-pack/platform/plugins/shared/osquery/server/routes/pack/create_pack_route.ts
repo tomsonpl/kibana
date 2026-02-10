@@ -35,6 +35,7 @@ import type { PackSavedObject } from '../../common/types';
 import type { PackResponseData } from './types';
 import { createPackRequestBodySchema } from '../../../common/api';
 import { getUserInfo } from '../../lib/get_user_info';
+import { classifyError } from '../../lib/telemetry/event_payloads';
 
 type PackSavedObjectLimited = Omit<PackSavedObject, 'saved_object_id' | 'references'>;
 
@@ -190,6 +191,20 @@ export const createPackRoute = (router: IRouter, osqueryContext: OsqueryAppConte
           shards: attributes.shards,
           saved_object_id: packSO.id,
         };
+
+        try {
+          osqueryContext.telemetry.reportPackCreated({
+            pack_id: packSO.id,
+            num_queries: queries ? Object.keys(queries).length : 0,
+            num_policies: policiesList.length,
+            has_shards: Object.keys(shards).length > 0,
+            is_enabled: !!enabled,
+            space_id: request.headers?.['kbn-xsrf'] ? 'default' : 'default',
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
 
         return response.ok({
           body: {

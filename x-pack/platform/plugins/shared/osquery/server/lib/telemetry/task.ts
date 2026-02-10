@@ -13,7 +13,7 @@ import type {
   TaskManagerStartContract,
 } from '@kbn/task-manager-plugin/server';
 import type { TelemetryReceiver } from './receiver';
-import type { TelemetryEventsSender } from './sender';
+import type { OsqueryTelemetryClient } from './telemetry_client';
 import { type LatestTaskStateSchema, stateSchemaByVersion } from './task_state';
 
 export interface OsqueryTelemetryTaskConfig {
@@ -30,7 +30,7 @@ export type OsqueryTelemetryTaskRunner = (
   taskId: string,
   logger: Logger,
   receiver: TelemetryReceiver,
-  sender: TelemetryEventsSender,
+  sender: OsqueryTelemetryClient,
   taskExecutionPeriod: TaskExecutionPeriod
 ) => Promise<void>;
 
@@ -47,13 +47,13 @@ export type LastExecutionTimestampCalculator = (
 export class OsqueryTelemetryTask {
   private readonly config: OsqueryTelemetryTaskConfig;
   private readonly logger: Logger;
-  private readonly sender: TelemetryEventsSender;
+  private readonly sender: OsqueryTelemetryClient;
   private readonly receiver: TelemetryReceiver;
 
   constructor(
     config: OsqueryTelemetryTaskConfig,
     logger: Logger,
-    sender: TelemetryEventsSender,
+    sender: OsqueryTelemetryClient,
     receiver: TelemetryReceiver
   ) {
     this.config = config;

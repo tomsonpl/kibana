@@ -63,6 +63,15 @@ export const deleteSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAp
           refresh: 'wait_for',
         });
 
+        try {
+          osqueryContext.telemetry.reportSavedQueryDeleted({
+            saved_query_id: request.params.id,
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
+
         return response.ok({
           body: {},
         });

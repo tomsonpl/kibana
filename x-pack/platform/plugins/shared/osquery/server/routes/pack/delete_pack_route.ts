@@ -20,6 +20,7 @@ import { packSavedObjectType } from '../../../common/types';
 import type { OsqueryAppContext } from '../../lib/osquery_app_context_services';
 import { deletePacksRequestParamsSchema } from '../../../common/api';
 import { createInternalSavedObjectsClientForSpaceId } from '../../utils/get_internal_saved_object_client';
+import { classifyError } from '../../lib/telemetry/event_payloads';
 
 export const deletePackRoute = (router: IRouter, osqueryContext: OsqueryAppContext) => {
   router.versioned
@@ -93,6 +94,16 @@ export const deletePackRoute = (router: IRouter, osqueryContext: OsqueryAppConte
             )
           )
         );
+
+        try {
+          osqueryContext.telemetry.reportPackDeleted({
+            pack_id: request.params.id,
+            was_prebuilt: false,
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
 
         return response.ok({
           body: {},

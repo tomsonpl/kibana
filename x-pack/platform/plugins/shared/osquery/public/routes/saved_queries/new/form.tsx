@@ -13,12 +13,14 @@ import {
   EuiFlexItem,
   EuiSpacer,
 } from '@elastic/eui';
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { FormattedMessage } from '@kbn/i18n-react';
+import type { FieldErrors } from 'react-hook-form';
 import { FormProvider } from 'react-hook-form';
 
 import { isEmpty } from 'lodash';
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { SavedQueryForm } from '../../../saved_queries/form';
 import type {
   SavedQuerySOFormData,
@@ -36,6 +38,8 @@ const NewSavedQueryFormComponent: React.FC<NewSavedQueryFormProps> = ({
   handleSubmit,
 }) => {
   const savedQueryListProps = useRouterNavigate('saved_queries');
+  const telemetry = useOsqueryTelemetry();
+  const reportedErrorsRef = useRef<Set<string>>(new Set());
 
   const hooksForm = useSavedQueryForm({
     defaultValue,
@@ -51,6 +55,22 @@ const NewSavedQueryFormComponent: React.FC<NewSavedQueryFormProps> = ({
     const serializedData = serializer(payload);
     await handleSubmit(serializedData);
   };
+
+  const onFormError = useCallback(
+    (formErrors: FieldErrors<SavedQueryFormData>) => {
+      const errorFields = Object.keys(formErrors).sort();
+      const errorKey = errorFields.join(',');
+      if (!reportedErrorsRef.current.has(errorKey)) {
+        reportedErrorsRef.current.add(errorKey);
+        try {
+          telemetry.reportFormValidationFailed({ form_type: 'saved_query', error_fields: errorFields });
+        } catch {
+          // Telemetry should never block the main flow
+        }
+      }
+    },
+    [telemetry]
+  );
 
   return (
     <FormProvider {...hooksForm}>
@@ -74,7 +94,7 @@ const NewSavedQueryFormComponent: React.FC<NewSavedQueryFormProps> = ({
                   fill
                   size="m"
                   iconType="save"
-                  onClick={formSubmit(onSubmit)}
+                  onClick={formSubmit(onSubmit, onFormError)}
                 >
                   <FormattedMessage
                     id="xpack.osquery.addSavedQuery.form.saveQueryButtonLabel"

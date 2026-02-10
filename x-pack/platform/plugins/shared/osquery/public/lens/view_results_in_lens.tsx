@@ -20,6 +20,7 @@ import { ViewResultsActionButtonType } from '../live_queries/form/pack_queries_s
 import type { LogsDataView } from '../common/hooks/use_logs_data_view';
 import { useKibana } from '../common/lib/kibana';
 import { useLogsDataView } from '../common/hooks/use_logs_data_view';
+import { useOsqueryTelemetry } from '../lib/telemetry';
 
 interface ViewResultsInLensActionProps {
   actionId?: string;
@@ -37,12 +38,21 @@ const ViewResultsInLensActionComponent: React.FC<ViewResultsInLensActionProps> =
   mode,
 }) => {
   const lensService = useKibana().services.lens;
+  const telemetry = useOsqueryTelemetry();
   const isLensAvailable = lensService?.canUseEditor();
   const { data: logsDataView } = useLogsDataView({ skip: !actionId, checkOnly: true });
 
   const handleClick = useCallback(
     (event: any) => {
       event.preventDefault();
+
+      if (actionId) {
+        try {
+          telemetry.reportResultsExported({ action_id: actionId, export_type: 'lens' });
+        } catch {
+          // Telemetry should never block the main flow
+        }
+      }
 
       if (logsDataView) {
         lensService?.navigateToPrefilledEditor(
@@ -62,7 +72,7 @@ const ViewResultsInLensActionComponent: React.FC<ViewResultsInLensActionProps> =
         );
       }
     },
-    [actionId, endDate, lensService, logsDataView, mode, startDate]
+    [actionId, endDate, lensService, logsDataView, mode, startDate, telemetry]
   );
 
   const isDisabled = useMemo(() => !actionId || !logsDataView, [actionId, logsDataView]);

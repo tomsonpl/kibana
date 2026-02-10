@@ -14,6 +14,8 @@ import React, { useCallback, useState, useRef } from 'react';
 import { i18n } from '@kbn/i18n';
 import { FormattedMessage } from '@kbn/i18n-react';
 
+import { useOsqueryTelemetry } from '../lib/telemetry';
+
 const SUPPORTED_CONFIG_EXTENSIONS = ['application/json', 'text/plain'];
 
 const ExampleConfigLink = React.memo(() => (
@@ -37,6 +39,8 @@ interface ConfigUploaderProps {
 const ConfigUploaderComponent: React.FC<ConfigUploaderProps> = ({ onChange }) => {
   const filePickerRef = useRef<EuiFilePickerClass>(null);
   const [isInvalid, setIsInvalid] = useState<string | null>(null);
+  const telemetry = useOsqueryTelemetry();
+  const fileSizeRef = useRef<number>(0);
   // @ts-expect-error update types
   let fileReader;
 
@@ -57,9 +61,27 @@ const ConfigUploaderComponent: React.FC<ConfigUploaderProps> = ({ onChange }) =>
       });
 
       setIsInvalid(null);
+
+      try {
+        telemetry.reportConfigUploaded({
+          file_size_bytes: fileSizeRef.current,
+          result: 'success',
+        });
+      } catch {
+        // Telemetry should never block the main flow
+      }
     } catch (error) {
       setIsInvalid(error);
       filePickerRef.current?.removeFiles();
+
+      try {
+        telemetry.reportConfigUploaded({
+          file_size_bytes: fileSizeRef.current,
+          result: 'failed',
+        });
+      } catch {
+        // Telemetry should never block the main flow
+      }
     }
 
     onChange(parsedContent);
@@ -69,6 +91,7 @@ const ConfigUploaderComponent: React.FC<ConfigUploaderProps> = ({ onChange }) =>
   // @ts-expect-error update types
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleFileChosen = (file) => {
+    fileSizeRef.current = file?.size ?? 0;
     fileReader = new FileReader();
     fileReader.onloadend = handleFileRead;
     fileReader.readAsText(file);

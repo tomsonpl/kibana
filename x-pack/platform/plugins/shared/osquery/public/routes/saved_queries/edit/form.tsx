@@ -13,11 +13,13 @@ import {
   EuiFlexItem,
   EuiSpacer,
 } from '@elastic/eui';
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { FormattedMessage } from '@kbn/i18n-react';
 
+import type { FieldErrors } from 'react-hook-form';
 import { FormProvider } from 'react-hook-form';
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { SavedQueryForm } from '../../../saved_queries/form';
 import type {
   SavedQueryFormData,
@@ -37,6 +39,11 @@ const EditSavedQueryFormComponent: React.FC<EditSavedQueryFormProps> = ({
   viewMode,
 }) => {
   const savedQueryListProps = useRouterNavigate('saved_queries');
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'edit_saved_query', timestamp: new Date().toISOString() });
+  }, [telemetry]);
 
   const hooksForm = useSavedQueryForm({
     defaultValue,
@@ -49,6 +56,8 @@ const EditSavedQueryFormComponent: React.FC<EditSavedQueryFormProps> = ({
     formState: { isSubmitting },
   } = hooksForm;
 
+  const reportedErrorsRef = useRef<Set<string>>(new Set());
+
   const onSubmit = async (payload: SavedQueryFormData) => {
     const serializedData = serializer(payload);
     try {
@@ -56,6 +65,25 @@ const EditSavedQueryFormComponent: React.FC<EditSavedQueryFormProps> = ({
       // eslint-disable-next-line no-empty
     } catch (e) {}
   };
+
+  const onFormError = useCallback(
+    (formErrors: FieldErrors<SavedQueryFormData>) => {
+      const errorFields = Object.keys(formErrors).sort();
+      const errorKey = errorFields.join(',');
+      if (!reportedErrorsRef.current.has(errorKey)) {
+        reportedErrorsRef.current.add(errorKey);
+        try {
+          telemetry.reportFormValidationFailed({
+            form_type: 'saved_query',
+            error_fields: errorFields,
+          });
+        } catch {
+          // Telemetry should never block the main flow
+        }
+      }
+    },
+    [telemetry]
+  );
 
   return (
     <FormProvider {...hooksForm}>
@@ -82,7 +110,7 @@ const EditSavedQueryFormComponent: React.FC<EditSavedQueryFormProps> = ({
                       fill
                       size="m"
                       iconType="save"
-                      onClick={formSubmit(onSubmit)}
+                      onClick={formSubmit(onSubmit, onFormError)}
                     >
                       <FormattedMessage
                         id="xpack.osquery.editSavedQuery.form.updateQueryButtonLabel"

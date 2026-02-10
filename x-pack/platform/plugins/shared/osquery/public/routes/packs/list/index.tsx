@@ -7,9 +7,10 @@
 
 import { EuiFlexGroup, EuiFlexItem, EuiText, EuiSkeletonText } from '@elastic/eui';
 import { FormattedMessage } from '@kbn/i18n-react';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { WithHeaderLayout } from '../../../components/layouts';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { PacksTable } from '../../../packs/packs_table';
 import { AddPackButton } from '../../../packs/add_pack_button';
 import { LoadIntegrationAssetsButton } from './load_integration_assets';
@@ -18,6 +19,12 @@ import { useAssetsStatus } from '../../../assets/use_assets_status';
 import { usePacks } from '../../../packs/use_packs';
 
 const PacksPageComponent = () => {
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'packs_list', timestamp: new Date().toISOString() });
+  }, [telemetry]);
+
   const { data: assetsData, isLoading: isLoadingAssetsStatus } = useAssetsStatus();
   const { data: packsData, isLoading: isLoadingPacks } = usePacks({});
   const showEmptyState = useMemo(

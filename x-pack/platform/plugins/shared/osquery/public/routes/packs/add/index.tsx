@@ -7,15 +7,21 @@
 
 import { EuiButtonEmpty, EuiFlexGroup, EuiFlexItem, EuiText } from '@elastic/eui';
 import { FormattedMessage } from '@kbn/i18n-react';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { WithHeaderLayout } from '../../../components/layouts';
 import { useRouterNavigate } from '../../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../../lib/telemetry';
 import { PackForm } from '../../../packs/form';
 import { useBreadcrumbs } from '../../../common/hooks/use_breadcrumbs';
 
 const AddPackPageComponent = () => {
   useBreadcrumbs('pack_add');
+  const telemetry = useOsqueryTelemetry();
+
+  useEffect(() => {
+    telemetry.reportPageView({ page: 'new_pack', timestamp: new Date().toISOString() });
+  }, [telemetry]);
   const packListProps = useRouterNavigate('packs');
 
   const LeftColumn = useMemo(

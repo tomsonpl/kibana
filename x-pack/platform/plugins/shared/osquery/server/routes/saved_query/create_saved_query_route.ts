@@ -19,6 +19,7 @@ import type { OsqueryAppContext } from '../../lib/osquery_app_context_services';
 import { convertECSMappingToArray } from '../utils';
 import { createSavedQueryRequestSchema } from '../../../common/api';
 import { getUserInfo } from '../../lib/get_user_info';
+import { classifyError } from '../../lib/telemetry/event_payloads';
 
 export const createSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAppContext) => {
   router.versioned
@@ -126,6 +127,20 @@ export const createSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAp
           },
           (value) => !isEmpty(value) || isNumber(value)
         );
+
+        try {
+          osqueryContext.telemetry.reportSavedQueryCreated({
+            saved_query_id: id,
+            has_ecs_mapping: !!ecs_mapping && Object.keys(ecs_mapping).length > 0,
+            ecs_mapping_count: ecs_mapping ? Object.keys(ecs_mapping).length : 0,
+            has_platform_filter: !!platform,
+            has_interval: !!interval,
+            snapshot_mode: !!snapshot,
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
 
         return response.ok({
           body: {

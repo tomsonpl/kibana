@@ -40,6 +40,7 @@ import type { PackSavedObject } from '../../common/types';
 import type { PackResponseData } from './types';
 import { updatePacksRequestBodySchema, updatePacksRequestParamsSchema } from '../../../common/api';
 import { getUserInfo } from '../../lib/get_user_info';
+import { classifyError } from '../../lib/telemetry/event_payloads';
 
 export const updatePackRoute = (router: IRouter, osqueryContext: OsqueryAppContext) => {
   router.versioned
@@ -371,6 +372,33 @@ export const updatePackRoute = (router: IRouter, osqueryContext: OsqueryAppConte
           shards: attributes.shards,
           saved_object_id: updatedPackSO.id,
         };
+
+        try {
+          const currentQueryKeys = currentPackSO.attributes
+            ? Object.keys((currentPackSO.attributes as Record<string, unknown>).queries || {})
+            : [];
+          const updatedQueryKeys = queries ? Object.keys(queries) : currentQueryKeys;
+          const queriesAdded = updatedQueryKeys.filter(
+            (k) => !currentQueryKeys.includes(k)
+          ).length;
+          const queriesRemoved = currentQueryKeys.filter(
+            (k) => !updatedQueryKeys.includes(k)
+          ).length;
+
+          osqueryContext.telemetry.reportPackUpdated({
+            pack_id: request.params.id,
+            num_queries: updatedQueryKeys.length,
+            num_policies: policiesList.length,
+            has_shards: Object.keys(shards).length > 0,
+            is_enabled: enabled ?? currentPackSO.attributes.enabled ?? false,
+            queries_added: queriesAdded,
+            queries_removed: queriesRemoved,
+            policies_changed: !!policy_ids || !isEmpty(shards),
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
 
         return response.ok({
           body: { data },

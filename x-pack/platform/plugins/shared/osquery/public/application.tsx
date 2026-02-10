@@ -21,6 +21,7 @@ import { queryClient } from './query_client';
 import { KibanaRenderContextProvider } from './shared_imports';
 import { ExperimentalFeaturesProvider } from './common/experimental_features_context';
 import type { ExperimentalFeatures } from '../common/experimental_features';
+import type { OsqueryClientTelemetryClient } from './lib/telemetry/telemetry_client';
 
 export const renderApp = (
   core: CoreStart,
@@ -28,7 +29,8 @@ export const renderApp = (
   { element, history }: AppMountParameters,
   storage: Storage,
   kibanaVersion: string,
-  experimentalFeatures: ExperimentalFeatures
+  experimentalFeatures: ExperimentalFeatures,
+  osqueryTelemetry?: OsqueryClientTelemetryClient
 ) => {
   ReactDOM.render(
     <KibanaRenderContextProvider {...core}>
@@ -40,6 +42,7 @@ export const renderApp = (
           ...core,
           ...services,
           storage,
+          osqueryTelemetry,
         }}
       >
         <ExperimentalFeaturesProvider value={experimentalFeatures}>

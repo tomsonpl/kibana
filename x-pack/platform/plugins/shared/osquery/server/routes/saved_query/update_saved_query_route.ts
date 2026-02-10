@@ -27,6 +27,7 @@ import {
   updateSavedQueryRequestParamsSchema,
 } from '../../../common/api/saved_query/update_saved_query_route';
 import { getUserInfo } from '../../lib/get_user_info';
+import { classifyError } from '../../lib/telemetry/event_payloads';
 
 export const updateSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAppContext) => {
   router.versioned
@@ -161,6 +162,18 @@ export const updateSavedQueryRoute = (router: IRouter, osqueryContext: OsqueryAp
           updated_by: attributes.updated_by,
           saved_object_id: updatedSavedQuerySO.id,
         };
+
+        try {
+          osqueryContext.telemetry.reportSavedQueryUpdated({
+            saved_query_id: request.params.id,
+            query_changed: !!query,
+            has_ecs_mapping: !!ecs_mapping && Object.keys(ecs_mapping).length > 0,
+            ecs_mapping_count: ecs_mapping ? Object.keys(ecs_mapping).length : 0,
+            result: 'success',
+          });
+        } catch (e) {
+          // Telemetry reporting should never block the main flow
+        }
 
         return response.ok({
           body: {

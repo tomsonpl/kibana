@@ -97,6 +97,48 @@ export const getLiveQueryDetailsRoute = (
           const isCompleted = expired || (responseData && every(responseData, ['pending', 0]));
           const agentByActionIdStatusMap = mapKeys(responseData, 'action_id');
 
+          // Track live query completion for telemetry
+          if (isCompleted && osqueryContext.completionTracker) {
+            const completionTracker = osqueryContext.completionTracker;
+            const actionId = actionDetails._source?.action_id;
+            if (actionId && !completionTracker.hasReported(actionId)) {
+              completionTracker.markReported(actionId);
+
+              const agentsExpected = queries?.reduce(
+                (sum: number, q: { agents?: string[] }) => sum + (q.agents?.length ?? 0),
+                0
+              ) ?? 0;
+              const agentsResponded = responseData?.reduce(
+                (sum: number, r: { responded?: number }) => sum + (r.responded ?? 0),
+                0
+              ) ?? 0;
+              const agentsFailed = responseData?.reduce(
+                (sum: number, r: { failed?: number }) => sum + (r.failed ?? 0),
+                0
+              ) ?? 0;
+
+              const createdAt = actionDetails._source?.['@timestamp'];
+              const durationSeconds = createdAt
+                ? Math.round((Date.now() - new Date(createdAt).getTime()) / 1000)
+                : 0;
+
+              try {
+                osqueryContext.telemetry.reportLiveQueryCompleted({
+                  action_id: actionId,
+                  agents_expected: agentsExpected,
+                  agents_responded: agentsResponded,
+                  agents_failed: agentsFailed,
+                  total_result_rows: 0,
+                  was_timeout: expired,
+                  query_count: queries?.length ?? 0,
+                  duration_seconds: durationSeconds,
+                });
+              } catch (e) {
+                // Telemetry should never block the main flow
+              }
+            }
+          }
+
           return response.ok({
             body: {
               data: {

@@ -10,6 +10,7 @@ import React, { useCallback, useMemo } from 'react';
 import { i18n } from '@kbn/i18n';
 import { useController } from 'react-hook-form';
 import styled from '@emotion/styled';
+import { useOsqueryTelemetry } from '../../lib/telemetry';
 
 const StyledEuiCard = styled(EuiCard)`
   padding: 0;
@@ -71,11 +72,18 @@ export const QueryPackSelectable = ({
     },
   });
 
+  const telemetry = useOsqueryTelemetry();
+
   const handleChange = useCallback(
     (type: any) => {
       setQueryType(type);
+      try {
+        telemetry.reportQuerySourceSelected({ source: type });
+      } catch {
+        // Telemetry should never block the main flow
+      }
     },
-    [setQueryType]
+    [setQueryType, telemetry]
   );
   const queryCardSelectable = useMemo(
     () => ({

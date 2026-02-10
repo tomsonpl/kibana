@@ -41,11 +41,15 @@ import {
 import type { ServicesWrapperProps } from './shared_components/services_wrapper';
 import { parseExperimentalConfigValue } from '../common/experimental_features';
 import type { ExperimentalFeatures } from '../common/experimental_features';
+import { OsqueryClientTelemetryService } from './lib/telemetry/telemetry_service';
+import type { OsqueryClientTelemetryClient } from './lib/telemetry/telemetry_client';
 
 export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginStart> {
   private kibanaVersion: string;
   private storage = new Storage(localStorage);
   private experimentalFeatures: ExperimentalFeatures;
+  private readonly clientTelemetryService = new OsqueryClientTelemetryService();
+  private clientTelemetry?: OsqueryClientTelemetryClient;
 
   constructor(private readonly initializerContext: PluginInitializerContext) {
     this.kibanaVersion = this.initializerContext.env.packageInfo.version;
@@ -66,7 +70,11 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
     const kibanaVersion = this.kibanaVersion;
     const experimentalFeatures = this.experimentalFeatures;
 
+    // Setup client-side telemetry
+    this.clientTelemetryService.setup(core.analytics);
+
     // Register an application into the side navigation menu
+    const clientTelemetryService = this.clientTelemetryService;
     core.application.register({
       id: 'osquery',
       title: PLUGIN_NAME,
@@ -79,6 +87,9 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
         // Load application bundle
         const { renderApp } = await import('./application');
 
+        // Start client telemetry and pass to the app
+        const osqueryTelemetry = clientTelemetryService.start();
+
         // Render the application
         return renderApp(
           coreStart,
@@ -86,7 +97,8 @@ export class OsqueryPlugin implements Plugin<OsqueryPluginSetup, OsqueryPluginSt
           params,
           storage,
           kibanaVersion,
-          experimentalFeatures
+          experimentalFeatures,
+          osqueryTelemetry
         );
       },
     });

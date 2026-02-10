@@ -20,6 +20,7 @@ import {
 import { QueryPackSelectable } from './query_pack_selectable';
 import type { SavedQuerySOFormData } from '../../saved_queries/form/use_saved_query_form';
 import { useKibana } from '../../common/lib/kibana';
+import { useOsqueryTelemetry } from '../../lib/telemetry';
 import { ResultTabs } from '../../routes/saved_queries/edit/tabs';
 import { SavedQueryFlyout } from '../../saved_queries';
 import { usePacks } from '../../packs/use_packs';
@@ -77,6 +78,7 @@ const LiveQueryFormComponent: React.FC<LiveQueryFormProps> = ({
   addToTimeline,
 }) => {
   const alertAttachmentContext = useContext(AlertAttachmentContext);
+  const telemetry = useOsqueryTelemetry();
 
   const { application } = useKibana().services;
   const permissions = application.capabilities.osquery;
@@ -160,9 +162,33 @@ const LiveQueryFormComponent: React.FC<LiveQueryFormProps> = ({
         },
         (value) => !isEmpty(value) || isNumber(value)
       ) as unknown as LiveQueryFormFields;
+
+      try {
+        const agentSelection = values.agentSelection;
+        const numAgentsSelected =
+          (agentSelection?.agents?.length ?? 0) +
+          (agentSelection?.policiesSelected?.length ?? 0) +
+          (agentSelection?.platformsSelected?.length ?? 0);
+        const agentSelectionType = agentSelection?.allAgentsSelected
+          ? 'all'
+          : agentSelection?.policiesSelected?.length
+          ? 'policy'
+          : 'manual';
+        telemetry.reportLiveQueryFormSubmitted({
+          query_source:
+            queryType === 'pack' ? 'pack' : values.savedQueryId ? 'saved_query' : 'custom',
+          agent_selection_type: agentSelectionType,
+          num_agents_selected: numAgentsSelected,
+          num_queries: queryType === 'pack' ? 0 : 1,
+          has_ecs_mapping: !!values.ecs_mapping && Object.keys(values.ecs_mapping).length > 0,
+        });
+      } catch {
+        // Telemetry should never block the main flow
+      }
+
       await mutateAsync(serializedData);
     },
-    [alertAttachmentContext, mutateAsync, queryType]
+    [alertAttachmentContext, mutateAsync, queryType, telemetry]
   );
 
   const serializedData: SavedQuerySOFormData = useMemo(

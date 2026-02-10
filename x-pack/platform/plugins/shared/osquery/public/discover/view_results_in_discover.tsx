@@ -5,13 +5,14 @@
  * 2.0.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { EuiButtonEmpty, EuiButtonIcon, EuiToolTip } from '@elastic/eui';
 import { i18n } from '@kbn/i18n';
 import { FilterStateStore } from '@kbn/es-query';
 import { useKibana } from '../common/lib/kibana';
 import { useLogsDataView } from '../common/hooks/use_logs_data_view';
 import { ViewResultsActionButtonType } from '../live_queries/form/pack_queries_status_table';
+import { useOsqueryTelemetry } from '../lib/telemetry';
 
 interface ViewResultsInDiscoverActionProps {
   actionId?: string;
@@ -28,11 +29,22 @@ const ViewResultsInDiscoverActionComponent: React.FC<ViewResultsInDiscoverAction
   startDate,
 }) => {
   const { discover, application } = useKibana().services;
+  const telemetry = useOsqueryTelemetry();
   const locator = discover?.locator;
   const discoverPermissions = application.capabilities.discover_v2;
   const { data: logsDataView } = useLogsDataView({ skip: !actionId, checkOnly: true });
 
   const [discoverUrl, setDiscoverUrl] = useState<string>('');
+
+  const handleDiscoverClick = useCallback(() => {
+    if (actionId) {
+      try {
+        telemetry.reportResultsExported({ action_id: actionId, export_type: 'discover' });
+      } catch {
+        // Telemetry should never block the main flow
+      }
+    }
+  }, [actionId, telemetry]);
 
   useEffect(() => {
     const getDiscoverUrl = async () => {
@@ -84,7 +96,13 @@ const ViewResultsInDiscoverActionComponent: React.FC<ViewResultsInDiscoverAction
 
   if (buttonType === ViewResultsActionButtonType.button) {
     return (
-      <EuiButtonEmpty size="xs" iconType="discoverApp" href={discoverUrl} target="_blank">
+      <EuiButtonEmpty
+        size="xs"
+        iconType="discoverApp"
+        href={discoverUrl}
+        target="_blank"
+        onClick={handleDiscoverClick}
+      >
         {VIEW_IN_DISCOVER}
       </EuiButtonEmpty>
     );
@@ -98,6 +116,7 @@ const ViewResultsInDiscoverActionComponent: React.FC<ViewResultsInDiscoverAction
         href={discoverUrl}
         target="_blank"
         isDisabled={!actionId || !discoverUrl.length}
+        onClick={handleDiscoverClick}
       />
     </EuiToolTip>
   );
