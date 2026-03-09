@@ -159,8 +159,6 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
             const term = kuery.replace(/\*/g, '').toLowerCase();
             const matchingPacks = await spaceScopedClient.find<PackSavedObject>({
               type: packSavedObjectType,
-              // search: `${term}*`,
-              // searchFields: ['name', 'queries.query'],
               perPage: 1000,
             });
 

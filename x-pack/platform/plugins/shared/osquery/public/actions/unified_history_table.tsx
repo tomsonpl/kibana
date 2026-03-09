@@ -62,21 +62,25 @@ interface HistoryDetailsButtonProps {
 const HistoryDetailsButton: React.FC<HistoryDetailsButtonProps> = ({ row }) => {
   const { push } = useHistory();
 
+  const sourceType = row.sourceType;
+  const scheduleId = isScheduledRow(row) ? row.scheduleId : undefined;
+  const executionCount = isScheduledRow(row) ? row.executionCount : undefined;
+  const actionId = isLiveRow(row) ? row.actionId : undefined;
+
   const path = useMemo(() => {
-    if (isScheduledRow(row) && row.scheduleId != null && row.executionCount != null) {
+    if (sourceType === 'scheduled' && scheduleId != null && executionCount != null) {
       return pagePathGetters.history_scheduled_details({
-        scheduleId: row.scheduleId,
-        executionCount: String(row.executionCount),
+        scheduleId,
+        executionCount: String(executionCount),
       });
     }
 
-    const liveRow = row as LiveHistoryRow;
-    if (liveRow.actionId) {
-      return pagePathGetters.history_details({ liveQueryId: liveRow.actionId });
+    if (actionId) {
+      return pagePathGetters.history_details({ liveQueryId: actionId });
     }
 
     return undefined;
-  }, [row]);
+  }, [sourceType, scheduleId, executionCount, actionId]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -118,7 +122,7 @@ const UnifiedHistoryTableComponent = () => {
   const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
   const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
 
-  const { currentCursor, pageIndex, goToNextPage, goToPreviousPage, resetPagination } =
+  const { currentCursor, pageIndex, goToNextPage, goToPage, resetPagination } =
     useCursorPagination();
 
   const {
@@ -491,16 +495,13 @@ const UnifiedHistoryTableComponent = () => {
       if (newPage > pageIndex && hasMore) {
         handleNextPage();
       } else if (newPage < pageIndex) {
-        const stepsBack = pageIndex - newPage;
-        for (let i = 0; i < stepsBack; i++) {
-          goToPreviousPage();
-        }
+        goToPage(newPage);
       }
     },
-    [pageIndex, hasMore, handleNextPage, goToPreviousPage]
+    [pageIndex, hasMore, handleNextPage, goToPage]
   );
 
-  const pageCount = hasMore ? 0 : pageIndex + 1;
+  const pageCount = hasMore ? pageIndex + 2 : pageIndex + 1;
 
   if (isLoading) {
     return <EuiSkeletonText lines={10} />;

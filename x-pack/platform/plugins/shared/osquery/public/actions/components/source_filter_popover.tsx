@@ -74,14 +74,16 @@ const SourceFilterPopoverComponent: React.FC<SourceFilterPopoverProps> = ({
   const closePopover = useCallback(() => setIsOpen(false), []);
 
   const activeCount = selectedSources.length;
+  const isFiltered = activeCount > 0;
+  const displayCount = isFiltered ? activeCount : SOURCE_OPTIONS.length;
 
   const triggerButton = (
     <EuiFilterButton
       iconType="arrowDown"
       onClick={togglePopover}
       isSelected={isOpen}
-      hasActiveFilters={activeCount > 0 && activeCount < SOURCE_OPTIONS.length}
-      numActiveFilters={activeCount < SOURCE_OPTIONS.length ? activeCount : 0}
+      hasActiveFilters={isFiltered}
+      numActiveFilters={displayCount}
       data-test-subj="history-source-filter-button"
     >
       {SOURCE_LABEL}
