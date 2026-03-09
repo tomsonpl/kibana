@@ -154,14 +154,50 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
           );
 
           let packIdsForQuery: string[] | undefined;
+          let scheduleIdsForQuery: string[] | undefined;
           if (kuery && includeScheduled) {
-            const packResults = await spaceScopedClient.find<PackSavedObject>({
+            const term = kuery.replace(/\*/g, '').toLowerCase();
+            const matchingPacks = await spaceScopedClient.find<PackSavedObject>({
               type: packSavedObjectType,
-              search: kuery,
-              searchFields: ['name'],
+              // search: `${term}*`,
+              // searchFields: ['name', 'queries.query'],
               perPage: 1000,
             });
-            packIdsForQuery = packResults.saved_objects.map((so) => so.id);
+
+            const matchingPackIds: string[] = [];
+            const matchingScheduleIds: string[] = [];
+
+            for (const so of matchingPacks.saved_objects) {
+              if (so.attributes.name?.toLowerCase().includes(term)) {
+                // Pack name matches → include all queries from this pack
+                matchingPackIds.push(so.id);
+              } else if (so.attributes.queries) {
+                // Check individual queries within the pack
+                for (const q of so.attributes.queries) {
+                  if (
+                    q.name?.toLowerCase().includes(term) ||
+                    q.id?.toLowerCase().includes(term) ||
+                    q.query?.toLowerCase().includes(term)
+                  ) {
+                    if (q.schedule_id) {
+                      matchingScheduleIds.push(q.schedule_id);
+                    }
+                  }
+                }
+              }
+            }
+
+            if (matchingPackIds.length > 0) {
+              packIdsForQuery = matchingPackIds;
+            }
+            if (matchingScheduleIds.length > 0) {
+              scheduleIdsForQuery = matchingScheduleIds;
+            }
+            // If kuery was provided but nothing matched, pass empty arrays
+            // so buildScheduledResponsesQuery emits match_none
+            if (matchingPackIds.length === 0 && matchingScheduleIds.length === 0) {
+              packIdsForQuery = [];
+            }
           }
 
           const actionsQuery = includeLive
@@ -184,6 +220,7 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
                 scheduledOffset,
                 pageSize,
                 packIds: packIdsForQuery,
+                scheduleIds: scheduleIdsForQuery,
                 spaceId,
                 startDate,
                 endDate,

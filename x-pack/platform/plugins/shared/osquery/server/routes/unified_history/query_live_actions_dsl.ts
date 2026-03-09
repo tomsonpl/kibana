@@ -7,9 +7,9 @@
 
 import type { estypes } from '@elastic/elasticsearch';
 
-const SIMPLE_QUERY_STRING_SPECIAL_CHARS = /[+\-|"*()~\\{}[\]:^!/&]/g;
-const escapeSimpleQueryString = (input: string): string =>
-  input.replace(SIMPLE_QUERY_STRING_SPECIAL_CHARS, '\\$&');
+const QUERY_STRING_SPECIAL_CHARS = /[+\-=&|><!(){}[\]^"~*?:\\/]/g;
+const escapeQueryString = (input: string): string =>
+  input.replace(QUERY_STRING_SPECIAL_CHARS, '\\$&');
 
 export type SortValues = Array<string | number>;
 
@@ -60,12 +60,13 @@ export const buildLiveActionsQuery = ({
   }
 
   if (kuery) {
-    const escaped = escapeSimpleQueryString(kuery);
+    const escaped = escapeQueryString(kuery);
     filters.push({
-      simple_query_string: {
+      query_string: {
         query: `*${escaped}*`,
         fields: ['pack_name', 'queries.query', 'queries.id'],
         analyze_wildcard: true,
+        allow_leading_wildcard: true,
       },
     });
   }

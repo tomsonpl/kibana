@@ -5,55 +5,128 @@
  * 2.0.
  */
 
-import React, { useCallback } from 'react';
-import { EuiFieldSearch, EuiFilterGroup, EuiFlexGroup, EuiFlexItem } from '@elastic/eui';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  EuiFieldSearch,
+  EuiFilterGroup,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiSuperDatePicker,
+} from '@elastic/eui';
+import type { OnTimeChangeProps } from '@elastic/eui';
+import { css } from '@emotion/react';
 import { i18n } from '@kbn/i18n';
+import type { SourceFilter } from '../../../common/api/unified_history/types';
 import { RunByFilterPopover } from './run_by_filter_popover';
+import { SourceFilterPopover } from './source_filter_popover';
 
 const SEARCH_PLACEHOLDER = i18n.translate('xpack.osquery.historyFilters.searchPlaceholder', {
-  defaultMessage: 'Search by query ID or agent ID',
+  defaultMessage: 'Search by query or pack name',
 });
+
+export const DEFAULT_START_DATE = 'now-24h';
+export const DEFAULT_END_DATE = 'now';
+
+const searchFieldCss = css`
+  min-width: 300px;
+`;
+
+const datePickerCss = css`
+  min-width: 300px;
+  max-width: 500px;
+`;
 
 interface HistoryFiltersProps {
   searchValue: string;
-  onSearchChange: (value: string) => void;
+  onSearchSubmit: (value: string) => void;
+  selectedSources: SourceFilter[];
+  onSelectedSourcesChanged: (sources: SourceFilter[]) => void;
   selectedUserIds: string[];
   onSelectedUsersChanged: (userIds: string[]) => void;
+  startDate: string;
+  endDate: string;
+  onTimeChange: (start: string, end: string) => void;
+  onRefresh: () => void;
 }
 
 const HistoryFiltersComponent: React.FC<HistoryFiltersProps> = ({
   searchValue,
-  onSearchChange,
+  onSearchSubmit,
+  selectedSources,
+  onSelectedSourcesChanged,
   selectedUserIds,
   onSelectedUsersChanged,
+  startDate,
+  endDate,
+  onTimeChange,
+  onRefresh,
 }) => {
+  const [localSearch, setLocalSearch] = useState(searchValue);
+
+  useEffect(() => {
+    setLocalSearch(searchValue);
+  }, [searchValue]);
+
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        onSearchSubmit(localSearch);
+      }
+    },
+    [localSearch, onSearchSubmit]
+  );
+
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onSearchChange(e.target.value);
+      setLocalSearch(e.target.value);
+      if (e.target.value === '') {
+        onSearchSubmit('');
+      }
     },
-    [onSearchChange]
+    [onSearchSubmit]
+  );
+
+  const handleTimeChange = useCallback(
+    ({ start, end }: OnTimeChangeProps) => {
+      onTimeChange(start, end);
+    },
+    [onTimeChange]
   );
 
   return (
-    <EuiFlexGroup gutterSize="m" responsive={false}>
-      <EuiFlexItem grow={3}>
+    <EuiFlexGroup gutterSize="m" responsive={false} wrap>
+      <EuiFlexItem grow={3} css={searchFieldCss}>
         <EuiFieldSearch
           fullWidth
           placeholder={SEARCH_PLACEHOLDER}
-          value={searchValue}
+          value={localSearch}
           onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
           isClearable
           data-test-subj="history-search-input"
         />
       </EuiFlexItem>
       <EuiFlexItem grow={false}>
         <EuiFilterGroup>
+          <SourceFilterPopover
+            selectedSources={selectedSources}
+            onSelectedSourcesChanged={onSelectedSourcesChanged}
+          />
           <RunByFilterPopover
             selectedUserIds={selectedUserIds}
             onSelectedUsersChanged={onSelectedUsersChanged}
             enabled
           />
         </EuiFilterGroup>
+      </EuiFlexItem>
+      <EuiFlexItem grow={false} css={datePickerCss}>
+        <EuiSuperDatePicker
+          start={startDate}
+          end={endDate}
+          onTimeChange={handleTimeChange}
+          onRefresh={onRefresh}
+          data-test-subj="history-date-picker"
+        />
       </EuiFlexItem>
     </EuiFlexGroup>
   );

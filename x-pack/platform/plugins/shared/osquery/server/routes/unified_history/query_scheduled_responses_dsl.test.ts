@@ -189,8 +189,8 @@ describe('buildScheduledResponsesQuery', () => {
     });
   });
 
-  describe('packIds filter', () => {
-    test('adds terms filter when packIds is a non-empty array', () => {
+  describe('packIds and scheduleIds filters', () => {
+    test('adds terms filter on pack_id when only packIds is provided', () => {
       const packIds = ['pack-1', 'pack-2'];
       const result = buildScheduledResponsesQuery({
         spaceId: defaultSpaceId,
@@ -202,7 +202,39 @@ describe('buildScheduledResponsesQuery', () => {
       expect(filters).toContainEqual({ terms: { pack_id: packIds } });
     });
 
-    test('adds match_none when packIds is empty', () => {
+    test('adds terms filter on schedule_id when only scheduleIds is provided', () => {
+      const scheduleIds = ['uuid-1', 'uuid-2'];
+      const result = buildScheduledResponsesQuery({
+        spaceId: defaultSpaceId,
+        scheduleIds,
+      });
+      const query = result.body.query as Record<string, unknown>;
+      const filters = (query.bool as Record<string, unknown>).filter as unknown[];
+
+      expect(filters).toContainEqual({ terms: { schedule_id: scheduleIds } });
+    });
+
+    test('ORs pack_id and schedule_id when both are provided', () => {
+      const result = buildScheduledResponsesQuery({
+        spaceId: defaultSpaceId,
+        packIds: ['pack-1'],
+        scheduleIds: ['uuid-1'],
+      });
+      const query = result.body.query as Record<string, unknown>;
+      const filters = (query.bool as Record<string, unknown>).filter as unknown[];
+
+      expect(filters).toContainEqual({
+        bool: {
+          should: [
+            { terms: { pack_id: ['pack-1'] } },
+            { terms: { schedule_id: ['uuid-1'] } },
+          ],
+          minimum_should_match: 1,
+        },
+      });
+    });
+
+    test('adds match_none when packIds is empty and no scheduleIds (kuery matched nothing)', () => {
       const result = buildScheduledResponsesQuery({
         spaceId: defaultSpaceId,
         packIds: [],
@@ -213,7 +245,20 @@ describe('buildScheduledResponsesQuery', () => {
       expect(filters).toContainEqual({ match_none: {} });
     });
 
-    test('does not add packIds filter when packIds is undefined', () => {
+    test('uses scheduleIds when packIds is empty but scheduleIds has values', () => {
+      const result = buildScheduledResponsesQuery({
+        spaceId: defaultSpaceId,
+        packIds: [],
+        scheduleIds: ['uuid-1'],
+      });
+      const query = result.body.query as Record<string, unknown>;
+      const filters = (query.bool as Record<string, unknown>).filter as unknown[];
+
+      expect(filters).toContainEqual({ terms: { schedule_id: ['uuid-1'] } });
+      expect(filters).not.toContainEqual({ match_none: {} });
+    });
+
+    test('does not add pack/schedule filter when both are undefined (no kuery)', () => {
       const result = buildScheduledResponsesQuery({
         spaceId: defaultSpaceId,
       });
