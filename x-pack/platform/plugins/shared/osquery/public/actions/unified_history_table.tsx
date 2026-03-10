@@ -22,7 +22,6 @@ import {
   formatDate,
 } from '@elastic/eui';
 import React, { useState, useCallback, useMemo } from 'react';
-import { useEuiTheme } from '@elastic/eui';
 import { useHistory } from 'react-router-dom';
 
 import { QUERY_TIMEOUT } from '../../common/constants';
@@ -111,7 +110,6 @@ const HistoryDetailsButton: React.FC<HistoryDetailsButtonProps> = ({ row }) => {
 HistoryDetailsButton.displayName = 'HistoryDetailsButton';
 
 const UnifiedHistoryTableComponent = () => {
-  const { euiTheme } = useEuiTheme();
   const permissions = useKibana().services.application.capabilities.osquery;
   const { push } = useHistory();
 
@@ -215,7 +213,7 @@ const UnifiedHistoryTableComponent = () => {
         return (
           <EuiFlexGroup gutterSize="s" alignItems="center" wrap={false}>
             <EuiFlexItem grow={false}>{displayName ?? row.packName}</EuiFlexItem>
-            {row.packName && displayName && row.packId && (
+            {!isLiveRow(row) && row.packName && displayName && row.packId && (
               <EuiFlexItem grow={false}>
                 <EuiBadge
                   iconType="package"
@@ -264,47 +262,9 @@ const UnifiedHistoryTableComponent = () => {
     return <>{row.totalRows ?? '\u2014'}</>;
   }, []);
 
-  const slashStyle = useMemo(() => ({ color: euiTheme.colors.lightShade }), [euiTheme]);
-
   const renderAgentsColumn = useCallback(
-    (_: unknown, row: UnifiedHistoryRow) => {
-      if (row.successCount != null) {
-        const errorCount = row.errorCount ?? 0;
-        const pendingCount = Math.max(0, row.agentCount - row.successCount - errorCount);
-
-        const badges: React.ReactNode[] = [];
-
-        if (row.successCount > 0) {
-          badges.push(<EuiBadge color="success">{row.successCount}</EuiBadge>);
-        }
-
-        if (pendingCount > 0) {
-          badges.push(<EuiBadge color="warning">{pendingCount}</EuiBadge>);
-        }
-
-        if (errorCount > 0) {
-          badges.push(<EuiBadge color="danger">{errorCount}</EuiBadge>);
-        }
-
-        return (
-          <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-            {badges.map((badge, idx) => (
-              <React.Fragment key={idx}>
-                <EuiFlexItem grow={false}>{badge}</EuiFlexItem>
-                {idx < badges.length - 1 && (
-                  <EuiFlexItem grow={false}>
-                    <span style={slashStyle}>/</span>
-                  </EuiFlexItem>
-                )}
-              </React.Fragment>
-            ))}
-          </EuiFlexGroup>
-        );
-      }
-
-      return <>{row.agentCount}</>;
-    },
-    [slashStyle]
+    (_: unknown, row: UnifiedHistoryRow) => <>{row.agentCount}</>,
+    []
   );
 
   const renderTimestampColumn = useCallback(

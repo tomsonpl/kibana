@@ -13,7 +13,7 @@ import {
   EuiFlexItem,
   EuiSuperDatePicker,
 } from '@elastic/eui';
-import type { OnTimeChangeProps } from '@elastic/eui';
+import type { OnTimeChangeProps, OnRefreshChangeProps } from '@elastic/eui';
 import { css } from '@emotion/react';
 import { i18n } from '@kbn/i18n';
 import type { SourceFilter } from '../../../common/api/unified_history/types';
@@ -86,11 +86,22 @@ const HistoryFiltersComponent: React.FC<HistoryFiltersProps> = ({
     [onSearchSubmit]
   );
 
+  const [isPaused, setIsPaused] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(5000);
+
   const handleTimeChange = useCallback(
     ({ start, end }: OnTimeChangeProps) => {
       onTimeChange(start, end);
     },
     [onTimeChange]
+  );
+
+  const handleRefreshChange = useCallback(
+    ({ isPaused: paused, refreshInterval: interval }: OnRefreshChangeProps) => {
+      setIsPaused(paused);
+      setRefreshInterval(interval);
+    },
+    []
   );
 
   return (
@@ -125,6 +136,9 @@ const HistoryFiltersComponent: React.FC<HistoryFiltersProps> = ({
           end={endDate}
           onTimeChange={handleTimeChange}
           onRefresh={onRefresh}
+          isPaused={isPaused}
+          refreshInterval={refreshInterval}
+          onRefreshChange={handleRefreshChange}
           data-test-subj="history-date-picker"
         />
       </EuiFlexItem>
