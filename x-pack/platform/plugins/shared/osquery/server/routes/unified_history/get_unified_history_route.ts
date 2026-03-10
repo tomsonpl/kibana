@@ -17,63 +17,21 @@ import {
 } from '../../../common/constants';
 import type { OsqueryAppContext } from '../../lib/osquery_app_context_services';
 import { createInternalSavedObjectsClientForSpaceId } from '../../utils/get_internal_saved_object_client';
-import { packSavedObjectType } from '../../../common/types';
-import type { PackSavedObject } from '../../common/types';
 import type {
   UnifiedHistoryRow,
-  LiveHistoryRow,
-  ScheduledHistoryRow,
   UnifiedHistoryResponse,
   SourceFilter,
-  DecodedCursor,
 } from '../../../common/api/unified_history/types';
 import { buildLiveActionsQuery } from './query_live_actions_dsl';
-import type { SortValues } from './query_live_actions_dsl';
 import { buildScheduledResponsesQuery } from './query_scheduled_responses_dsl';
 import { mergeRows } from './merge_rows';
-import { buildPackLookup } from './pack_lookup';
-import { mapLiveHitToRow } from './map_live_hit_to_row';
 import type { LiveActionHit } from './map_live_hit_to_row';
+import { decodeCursor, encodeCursor, computePaginationCursors } from './cursor_utils';
+import { processLiveHistory } from './process_live_history';
+import { resolvePackFilterForKuery, processScheduledHistory } from './process_scheduled_history';
+import type { ScheduledAggregations } from './process_scheduled_history';
 
 const VALID_SOURCE_FILTERS = new Set(['live', 'rule', 'scheduled']);
-
-export interface ScheduledExecutionBucket {
-  key: [string, number];
-  key_as_string: string;
-  doc_count: number;
-  planned_time: { value: number | null; value_as_string?: string };
-  max_timestamp: { value: number; value_as_string: string };
-  agent_count: { value: number };
-  total_rows: { value: number };
-  success_count: { doc_count: number };
-  error_count: { doc_count: number };
-  pack_id_hit?: {
-    hits: {
-      hits: Array<{ _source?: { pack_id?: string } }>;
-    };
-  };
-}
-
-interface ScheduledAggregations {
-  scheduled_executions?: {
-    buckets: ScheduledExecutionBucket[];
-  };
-}
-
-const decodeCursor = (nextPage?: string): DecodedCursor => {
-  if (!nextPage) return {};
-  try {
-    return JSON.parse(Buffer.from(nextPage, 'base64').toString('utf8'));
-  } catch {
-    return {};
-  }
-};
-
-const encodeCursor = (cursor: DecodedCursor): string =>
-  Buffer.from(JSON.stringify(cursor)).toString('base64');
-
-const extractPackIdFromBucket = (bucket: ScheduledExecutionBucket): string | undefined =>
-  bucket.pack_id_hit?.hits?.hits?.[0]?._source?.pack_id;
 
 export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryAppContext) => {
   const logger: Logger = osqueryContext.logFactory.get('unifiedHistory');
@@ -153,51 +111,16 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
             request
           );
 
+          // Resolve pack filter for kuery (scheduled queries only)
           let packIdsForQuery: string[] | undefined;
           let scheduleIdsForQuery: string[] | undefined;
           if (kuery && includeScheduled) {
-            const term = kuery.replace(/\*/g, '').toLowerCase();
-            const matchingPacks = await spaceScopedClient.find<PackSavedObject>({
-              type: packSavedObjectType,
-              perPage: 1000,
-            });
-
-            const matchingPackIds: string[] = [];
-            const matchingScheduleIds: string[] = [];
-
-            for (const so of matchingPacks.saved_objects) {
-              if (so.attributes.name?.toLowerCase().includes(term)) {
-                // Pack name matches → include all queries from this pack
-                matchingPackIds.push(so.id);
-              } else if (so.attributes.queries) {
-                // Check individual queries within the pack
-                for (const q of so.attributes.queries) {
-                  if (
-                    q.name?.toLowerCase().includes(term) ||
-                    q.id?.toLowerCase().includes(term) ||
-                    q.query?.toLowerCase().includes(term)
-                  ) {
-                    if (q.schedule_id) {
-                      matchingScheduleIds.push(q.schedule_id);
-                    }
-                  }
-                }
-              }
-            }
-
-            if (matchingPackIds.length > 0) {
-              packIdsForQuery = matchingPackIds;
-            }
-            if (matchingScheduleIds.length > 0) {
-              scheduleIdsForQuery = matchingScheduleIds;
-            }
-            // If kuery was provided but nothing matched, pass empty arrays
-            // so buildScheduledResponsesQuery emits match_none
-            if (matchingPackIds.length === 0 && matchingScheduleIds.length === 0) {
-              packIdsForQuery = [];
-            }
+            const filter = await resolvePackFilterForKuery(spaceScopedClient, kuery);
+            packIdsForQuery = filter.packIds;
+            scheduleIdsForQuery = filter.scheduleIds;
           }
 
+          // Build ES queries
           const actionsQuery = includeLive
             ? buildLiveActionsQuery({
                 pageSize: fetchSize,
@@ -227,6 +150,7 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
 
           const emptyScheduledResult = { aggregations: {} as ScheduledAggregations };
 
+          // Fetch live actions and scheduled responses in parallel
           const [actionsResult, scheduledResult] = await Promise.all([
             actionsQuery
               ? esClient.search(
@@ -247,10 +171,6 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
                     { ignore: [404] }
                   )
                   .catch((err) => {
-                    // Graceful degradation: if the osquery integration has not been
-                    // upgraded yet, `planned_schedule_time` may be mapped as `keyword`
-                    // instead of `date`, which makes the `max` aggregation fail.
-                    // Return empty scheduled results until the integration is updated.`````
                     logger.warn(
                       `Scheduled query aggregation failed (likely outdated integration mappings): ${err.message}`
                     );
@@ -260,132 +180,42 @@ export const getUnifiedHistoryRoute = (router: IRouter, osqueryContext: OsqueryA
               : Promise.resolve(emptyScheduledResult),
           ]);
 
+          // Process live and scheduled results
           const liveHits = (actionsResult.hits?.hits ?? []) as LiveActionHit[];
-          const liveRows: LiveHistoryRow[] = liveHits.map(mapLiveHitToRow);
 
-          const sortValuesMap = new Map<string, SortValues>();
-          for (const hit of liveHits) {
-            if (hit.sort) {
-              const actionId =
-                hit.fields?.action_id ?? (hit._source as Record<string, unknown>)?.action_id;
-              const id = Array.isArray(actionId) ? actionId[0] : actionId;
-              if (typeof id === 'string') {
-                sortValuesMap.set(id, hit.sort);
-              }
-            }
-          }
-
-          const filteredLiveRows = activeFilters
-            ? liveRows.filter((row) => {
-                if (row.source === 'Rule') return activeFilters.has('rule');
-
-                return activeFilters.has('live');
-              })
-            : liveRows;
-
-          const scheduledAgg = (scheduledResult.aggregations as ScheduledAggregations)
-            ?.scheduled_executions;
-          const scheduledBuckets: ScheduledExecutionBucket[] = scheduledAgg?.buckets ?? [];
-
-          const bucketPackIds = scheduledBuckets
-            .map(extractPackIdFromBucket)
-            .filter((id): id is string => !!id);
-          const uniquePackIds = [...new Set(bucketPackIds)];
-
-          let packSOs: Array<{ id: string; attributes: PackSavedObject }>;
-          if (uniquePackIds.length > 0) {
-            const bulkResult = await spaceScopedClient.bulkGet<PackSavedObject>(
-              uniquePackIds.map((id) => ({ id, type: packSavedObjectType }))
-            );
-            packSOs = bulkResult.saved_objects
-              .filter((so) => !so.error)
-              .map((so) => ({ id: so.id, attributes: so.attributes }));
-          } else {
-            packSOs = [];
-          }
-
-          const packLookup = buildPackLookup(packSOs);
-
-          const allScheduledRows: ScheduledHistoryRow[] = scheduledBuckets.map((bucket) => {
-            const scheduleId = bucket.key[0];
-            const executionCount = bucket.key[1];
-            const bucketPackId = extractPackIdFromBucket(bucket);
-            const packContext = packLookup.get(scheduleId);
-
-            return {
-              id: `${scheduleId}_${executionCount}`,
-              sourceType: 'scheduled' as const,
-              timestamp: bucket.max_timestamp.value_as_string,
-              plannedTime: bucket.planned_time.value_as_string,
-              queryText: packContext?.queryText ?? '',
-              queryName: packContext?.queryName,
-              source: 'Scheduled' as const,
-              packName: packContext?.packName,
-              packId: packContext?.packId ?? bucketPackId,
-              spaceId,
-              agentCount: bucket.agent_count.value,
-              successCount: bucket.success_count.doc_count,
-              errorCount: bucket.error_count.doc_count,
-              totalRows: bucket.total_rows.value,
-              scheduleId,
-              executionCount,
-            };
+          const { liveRows, sortValuesMap } = await processLiveHistory({
+            liveHits,
+            osqueryContext,
+            spaceId,
+            activeFilters,
+            logger,
           });
 
+          const scheduledBuckets =
+            (scheduledResult.aggregations as ScheduledAggregations)?.scheduled_executions
+              ?.buckets ?? [];
+
+          const allScheduledRows = await processScheduledHistory({
+            scheduledBuckets,
+            spaceScopedClient,
+            spaceId,
+          });
+
+          // Merge and paginate
           const mergeResult = mergeRows<UnifiedHistoryRow>(
-            filteredLiveRows,
+            liveRows,
             allScheduledRows,
             pageSize,
             scheduledOffset
           );
 
-          // Compute the live search_after cursor: find the last live row on the
-          // page and look up its ES sort values. If no live rows appeared on this
-          // page, carry forward the previous cursor so the live stream resumes
-          // from where it left off instead of restarting from the beginning.
-          let nextSortValues: SortValues | undefined;
-          for (let i = mergeResult.rows.length - 1; i >= 0; i--) {
-            const row = mergeResult.rows[i];
-            if (row.sourceType === 'live' && row.actionId) {
-              nextSortValues = sortValuesMap.get(row.actionId);
-              if (nextSortValues) break;
-            }
-          }
-
-          const nextActionSearchAfter = nextSortValues ?? decoded.actionSearchAfter;
-
-          // Compute the scheduled cursor + offset using planned_schedule_time
-          // (deterministic per execution, unlike @timestamp which varies per agent).
-          // The cursor is the planned_time of the last scheduled row on this page.
-          // The offset counts how many buckets at that exact planned_time we have
-          // already consumed. When the cursor advances (new planned_time), the
-          // offset resets to only the boundary count on this page.
-          let nextScheduledCursor = decoded.scheduledCursor;
-          let nextScheduledOffset = scheduledOffset;
-
-          const scheduledOnPage = mergeResult.rows.filter(
-            (r): r is ScheduledHistoryRow => r.sourceType === 'scheduled'
-          );
-
-          if (scheduledOnPage.length > 0) {
-            const lastPlannedTime = scheduledOnPage[scheduledOnPage.length - 1].plannedTime;
-
-            if (lastPlannedTime) {
-              const boundaryCount = scheduledOnPage.filter(
-                (r) => r.plannedTime === lastPlannedTime
-              ).length;
-
-              if (lastPlannedTime !== decoded.scheduledCursor) {
-                nextScheduledCursor = lastPlannedTime;
-                nextScheduledOffset = boundaryCount;
-              } else {
-                nextScheduledOffset = scheduledOffset + mergeResult.scheduledConsumedOnPage;
-              }
-            }
-            // When lastPlannedTime is undefined (planned_schedule_time absent from docs)
-            // we leave cursor and offset unchanged — the query's range filter excludes
-            // those documents, so no offset advance is needed and the cursor is not corrupted.
-          }
+          const { nextActionSearchAfter, nextScheduledCursor, nextScheduledOffset } =
+            computePaginationCursors({
+              mergeResult,
+              sortValuesMap,
+              decoded,
+              scheduledOffset,
+            });
 
           let nextPageToken: string | undefined;
           if (mergeResult.hasMore) {

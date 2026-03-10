@@ -15,15 +15,14 @@ import {
   EuiCodeBlock,
   EuiFlexGroup,
   EuiFlexItem,
-  EuiIcon,
   EuiSkeletonText,
   EuiSpacer,
   EuiTablePagination,
-  EuiTextColor,
   EuiToolTip,
   formatDate,
 } from '@elastic/eui';
 import React, { useState, useCallback, useMemo } from 'react';
+import { useEuiTheme } from '@elastic/eui';
 import { useHistory } from 'react-router-dom';
 
 import { QUERY_TIMEOUT } from '../../common/constants';
@@ -112,6 +111,7 @@ const HistoryDetailsButton: React.FC<HistoryDetailsButtonProps> = ({ row }) => {
 HistoryDetailsButton.displayName = 'HistoryDetailsButton';
 
 const UnifiedHistoryTableComponent = () => {
+  const { euiTheme } = useEuiTheme();
   const permissions = useKibana().services.application.capabilities.osquery;
   const { push } = useHistory();
 
@@ -264,28 +264,48 @@ const UnifiedHistoryTableComponent = () => {
     return <>{row.totalRows ?? '\u2014'}</>;
   }, []);
 
-  const renderAgentsColumn = useCallback((_: unknown, row: UnifiedHistoryRow) => {
-    if (row.successCount != null) {
-      return (
-        <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-          <EuiFlexItem grow={false}>
-            <EuiIcon type="check" color="success" size="m" aria-hidden={true} />
-          </EuiFlexItem>
-          <EuiFlexItem grow={false}>
-            <EuiTextColor color="success">{row.successCount}</EuiTextColor>
-          </EuiFlexItem>
-          <EuiFlexItem grow={false}>
-            <EuiIcon type="cross" color="danger" size="m" aria-hidden={true} />
-          </EuiFlexItem>
-          <EuiFlexItem grow={false}>
-            <EuiTextColor color="danger">{row.errorCount ?? 0}</EuiTextColor>
-          </EuiFlexItem>
-        </EuiFlexGroup>
-      );
-    }
+  const slashStyle = useMemo(() => ({ color: euiTheme.colors.lightShade }), [euiTheme]);
 
-    return <>{row.agentCount}</>;
-  }, []);
+  const renderAgentsColumn = useCallback(
+    (_: unknown, row: UnifiedHistoryRow) => {
+      if (row.successCount != null) {
+        const errorCount = row.errorCount ?? 0;
+        const pendingCount = Math.max(0, row.agentCount - row.successCount - errorCount);
+
+        const badges: React.ReactNode[] = [];
+
+        if (row.successCount > 0) {
+          badges.push(<EuiBadge color="success">{row.successCount}</EuiBadge>);
+        }
+
+        if (pendingCount > 0) {
+          badges.push(<EuiBadge color="warning">{pendingCount}</EuiBadge>);
+        }
+
+        if (errorCount > 0) {
+          badges.push(<EuiBadge color="danger">{errorCount}</EuiBadge>);
+        }
+
+        return (
+          <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
+            {badges.map((badge, idx) => (
+              <React.Fragment key={idx}>
+                <EuiFlexItem grow={false}>{badge}</EuiFlexItem>
+                {idx < badges.length - 1 && (
+                  <EuiFlexItem grow={false}>
+                    <span style={slashStyle}>/</span>
+                  </EuiFlexItem>
+                )}
+              </React.Fragment>
+            ))}
+          </EuiFlexGroup>
+        );
+      }
+
+      return <>{row.agentCount}</>;
+    },
+    [slashStyle]
+  );
 
   const renderTimestampColumn = useCallback(
     (_: unknown, row: UnifiedHistoryRow) => <>{formatDate(row.timestamp)}</>,
@@ -413,20 +433,20 @@ const UnifiedHistoryTableComponent = () => {
         render: renderQueryColumn,
       },
       {
-        field: 'source',
-        name: i18n.translate('xpack.osquery.liveQueryActions.table.sourceColumnTitle', {
-          defaultMessage: 'Source',
-        }),
-        width: '120px',
-        render: renderSourceColumn,
-      },
-      {
         field: 'totalRows',
         name: i18n.translate('xpack.osquery.liveQueryActions.table.resultsColumnTitle', {
           defaultMessage: 'Results',
         }),
         width: '120px',
         render: renderResultsColumn,
+      },
+      {
+        field: 'source',
+        name: i18n.translate('xpack.osquery.liveQueryActions.table.sourceColumnTitle', {
+          defaultMessage: 'Source',
+        }),
+        width: '120px',
+        render: renderSourceColumn,
       },
       {
         field: 'agentCount',
