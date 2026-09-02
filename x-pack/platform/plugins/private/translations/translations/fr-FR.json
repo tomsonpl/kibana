@@ -37734,7 +37734,6 @@
     "xpack.osquery.packs.table.policyColumnTitle": "Politiques planifiées",
     "xpack.osquery.packs.table.runActionAriaLabel": "Exécuter {packName}",
     "xpack.osquery.packUploader.examplePacksLinkLabel": "Exemples de packs",
-    "xpack.osquery.packUploader.initialPromptTextLabel": "Sélectionner ou glisser-déposer le fichier config du pack osquery",
     "xpack.osquery.packUploader.unsupportedFileTypeText": "Le type de fichier {fileType} n'est pas pris en charge, veuillez charger le fichier config {supportedFileTypes}",
     "xpack.osquery.permissionDeniedErrorMessage": "Vous n'êtes pas autorisé à accéder à cette page.",
     "xpack.osquery.permissionDeniedErrorTitle": "Autorisation refusée",

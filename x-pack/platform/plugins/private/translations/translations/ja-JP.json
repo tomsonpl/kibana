@@ -37940,7 +37940,6 @@
     "xpack.osquery.packs.table.policyColumnTitle": "スケジュールされたポリシー",
     "xpack.osquery.packs.table.runActionAriaLabel": "{packName}を実行",
     "xpack.osquery.packUploader.examplePacksLinkLabel": "パックの例",
-    "xpack.osquery.packUploader.initialPromptTextLabel": "osqueryパック構成ファイルを選択するか、ドラッグします",
     "xpack.osquery.packUploader.unsupportedFileTypeText": "ファイルタイプ{fileType}はサポートされていません。{supportedFileTypes}構成ファイルをアップロードしてください",
     "xpack.osquery.permissionDeniedErrorMessage": "このページへのアクセスが許可されていません。",
     "xpack.osquery.permissionDeniedErrorTitle": "パーミッションが拒否されました",

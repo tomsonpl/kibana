@@ -37825,7 +37825,6 @@
     "xpack.osquery.packs.table.policyColumnTitle": "Geplante Richtlinien",
     "xpack.osquery.packs.table.runActionAriaLabel": "{packName} ausführen",
     "xpack.osquery.packUploader.examplePacksLinkLabel": "Example-Pakete",
-    "xpack.osquery.packUploader.initialPromptTextLabel": "Wählen Sie die osquery-Pack-Konfigurationsdatei aus oder ziehen Sie sie per Drag-and-Drop hinein",
     "xpack.osquery.packUploader.unsupportedFileTypeText": "Der Dateityp {fileType} wird nicht unterstützt, bitte laden Sie die Konfigurationsdatei {supportedFileTypes} hoch.",
     "xpack.osquery.permissionDeniedErrorMessage": "Sie sind nicht berechtigt, auf diese Seite zuzugreifen.",
     "xpack.osquery.permissionDeniedErrorTitle": "Zugriff verweigert",

@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { render, act } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import { __IntlProvider as IntlProvider } from '@kbn/i18n-react';
 import { EuiProvider } from '@elastic/eui';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
@@ -129,12 +129,12 @@ const FormWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-const renderQueriesField = () =>
+const renderQueriesField = (isDisabled?: boolean) =>
   render(
     <EuiProvider>
       <IntlProvider locale="en">
         <FormWrapper>
-          <QueriesField euiFieldProps={{}} />
+          <QueriesField euiFieldProps={{ isDisabled }} />
         </FormWrapper>
       </IntlProvider>
     </EuiProvider>
@@ -148,6 +148,28 @@ describe('QueriesField', () => {
     capturedUploaderOnChange = null;
     capturedQueriesState = [];
     jest.clearAllMocks();
+  });
+
+  describe('toolbar placement', () => {
+    it('should render Import uploader and Add query in the toolbar for a writable form', () => {
+      renderQueriesField();
+
+      expect(screen.getByTestId('osquery-pack-uploader')).toBeInTheDocument();
+      expect(screen.getByTestId('add-query-button')).toBeInTheDocument();
+    });
+
+    it('should not render Import uploader when isReadOnly', () => {
+      renderQueriesField(true);
+
+      expect(screen.queryByTestId('osquery-pack-uploader')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('add-query-button')).not.toBeInTheDocument();
+    });
+
+    it('should pass onChange to OsqueryPackUploader', () => {
+      renderQueriesField();
+
+      expect(capturedUploaderOnChange).not.toBeNull();
+    });
   });
 
   describe('pack uploader', () => {

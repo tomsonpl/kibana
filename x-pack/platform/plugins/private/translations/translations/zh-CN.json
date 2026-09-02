@@ -37949,7 +37949,6 @@
     "xpack.osquery.packs.table.policyColumnTitle": "已计划策略",
     "xpack.osquery.packs.table.runActionAriaLabel": "运行 {packName}",
     "xpack.osquery.packUploader.examplePacksLinkLabel": "示例包",
-    "xpack.osquery.packUploader.initialPromptTextLabel": "选择或拖放 osquery 包配置文件",
     "xpack.osquery.packUploader.unsupportedFileTypeText": "文件类型 {fileType} 不受支持，请上传 {supportedFileTypes} 配置文件",
     "xpack.osquery.permissionDeniedErrorMessage": "您无权访问此页面。",
     "xpack.osquery.permissionDeniedErrorTitle": "权限被拒绝",

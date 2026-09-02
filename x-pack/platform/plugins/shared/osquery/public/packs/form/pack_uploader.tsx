@@ -6,9 +6,8 @@
  */
 
 import { kebabCase } from 'lodash';
-import { EuiLink, EuiFormRow, EuiFilePicker, EuiSpacer } from '@elastic/eui';
-import type { EuiFilePickerRef } from '@elastic/eui';
-import React, { useCallback, useState, useRef } from 'react';
+import { EuiLink, EuiToolTip, EuiButtonEmpty } from '@elastic/eui';
+import React, { useCallback, useRef, useState } from 'react';
 import { i18n } from '@kbn/i18n';
 import { FormattedMessage } from '@kbn/i18n-react';
 
@@ -25,13 +24,22 @@ const ExamplePackLink = React.memo(() => (
 
 ExamplePackLink.displayName = 'ExamplePackLink';
 
+const HIDDEN_INPUT_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  width: 0,
+  height: 0,
+  opacity: 0,
+  overflow: 'hidden',
+  pointerEvents: 'none',
+};
+
 interface OsqueryPackUploaderProps {
   onChange: (payload: Record<string, unknown>, packName: string) => void;
 }
 
 const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onChange }) => {
   const packName = useRef('');
-  const filePickerRef = useRef<EuiFilePickerRef>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isInvalid, setIsInvalid] = useState<string | null>(null);
   // @ts-expect-error update types
   let fileReader;
@@ -60,7 +68,7 @@ const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onCh
       setIsInvalid(null);
     } catch (error) {
       setIsInvalid(error);
-      filePickerRef.current?.removeFiles();
+      if (inputRef.current) inputRef.current.value = '';
     }
 
     if (!parsedContent?.queries) {
@@ -68,7 +76,7 @@ const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onCh
     }
 
     onChange(parsedContent, packName.current);
-    filePickerRef.current?.removeFiles();
+    if (inputRef.current) inputRef.current.value = '';
   };
 
   // @ts-expect-error update types
@@ -80,8 +88,10 @@ const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onCh
   };
 
   const handleInputChange = useCallback(
-    (inputFiles: any) => {
-      if (!inputFiles.length) {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const inputFiles = e.target.files;
+
+      if (!inputFiles?.length) {
         packName.current = '';
 
         return;
@@ -103,7 +113,7 @@ const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onCh
             },
           })
         );
-        filePickerRef.current?.removeFiles();
+        if (inputRef.current) inputRef.current.value = '';
 
         return;
       }
@@ -114,32 +124,50 @@ const OsqueryPackUploaderComponent: React.FC<OsqueryPackUploaderProps> = ({ onCh
     [handleFileChosen]
   );
 
-  const filePickerLabel = i18n.translate('xpack.osquery.packUploader.initialPromptTextLabel', {
-    defaultMessage: 'Select or drag and drop osquery pack config file',
+  const handleButtonClick = useCallback(() => {
+    inputRef.current?.click();
+  }, []);
+
+  const importLabel = i18n.translate('xpack.osquery.packUploader.importButtonLabel', {
+    defaultMessage: 'Import',
   });
 
   return (
-    <>
-      <EuiSpacer size="xl" />
-      <EuiFormRow
-        fullWidth
-        labelAppend={<ExamplePackLink />}
-        isInvalid={!!isInvalid}
-        error={<>{`${isInvalid}`}</>}
-      >
-        <EuiFilePicker
-          ref={filePickerRef}
+    <EuiToolTip
+      content={
+        <>
+          <FormattedMessage
+            id="xpack.osquery.packUploader.importTooltipText"
+            defaultMessage="Replaces queries in this pack. See"
+          />{' '}
+          <ExamplePackLink />.
+        </>
+      }
+    >
+      <>
+        <EuiButtonEmpty
+          iconType="importAction"
+          onClick={handleButtonClick}
+          data-test-subj="osquery-pack-uploader-button"
+          color={isInvalid ? 'danger' : 'primary'}
+          aria-label={importLabel}
+        >
+          {importLabel}
+        </EuiButtonEmpty>
+        {/* Native file input, fully hidden — EuiFilePicker cannot be hidden via style */}
+        <input
+          ref={inputRef}
           id="osquery_pack_picker"
-          initialPromptText={filePickerLabel}
-          aria-label={filePickerLabel}
-          onChange={handleInputChange}
-          display="large"
-          fullWidth
-          isInvalid={!!isInvalid}
+          data-test-subj="osquery_pack_picker"
+          type="file"
           accept={SUPPORTED_PACK_EXTENSIONS.join(',')}
+          onChange={handleInputChange}
+          style={HIDDEN_INPUT_STYLE}
+          aria-hidden="true"
+          tabIndex={-1}
         />
-      </EuiFormRow>
-    </>
+      </>
+    </EuiToolTip>
   );
 };
 

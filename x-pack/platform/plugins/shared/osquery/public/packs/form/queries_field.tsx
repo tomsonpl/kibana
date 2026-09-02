@@ -205,6 +205,9 @@ const QueriesFieldComponent: React.FC<QueriesFieldProps> = ({
         <>
           <EuiFlexGroup justifyContent="flexEnd">
             <EuiFlexItem grow={false}>
+              <OsqueryPackUploader onChange={handlePackUpload} />
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
               {!tableSelectedItems.length ? (
                 <EuiButton
                   data-test-subj="add-query-button"
@@ -246,7 +249,6 @@ const QueriesFieldComponent: React.FC<QueriesFieldProps> = ({
         />
       ) : null}
       <EuiSpacer />
-      {!isReadOnly && <OsqueryPackUploader onChange={handlePackUpload} />}
       {showAddQueryFlyout && (
         <QueryFlyout
           uniqueQueryIds={uniqueQueryIds}
