@@ -159,6 +159,12 @@ describe.skip('ALL - Live Query Workflow', { tags: ['@ess', '@serverless'] }, ()
     }
   );
 
+  // #275900: `cy.type()` on [data-test-subj="select-live-pack"] timed out after 60s because the
+  // combobox was "being covered by another element" (a euiFlexGroup) right after switching to pack
+  // mode: an actionability race, test-side. The typing below now waits for the editor to unmount and
+  // the global loading indicator to clear first (same pattern as alert_response_actions.cy.ts).
+  // Not yet proven stable: local runs on 2026-11-06 were blocked (Docker Desktop unavailable), and
+  // the outer suite also hits the agent-results signature documented above.
   // Failing: See https://github.com/elastic/kibana/issues/275900
   describe.skip('live pack workflow', () => {
     let packName: string;
@@ -212,7 +218,9 @@ describe.skip('ALL - Live Query Workflow', { tags: ['@ess', '@serverless'] }, ()
       cy.contains('Run query').click();
       cy.contains('Run a set of queries in a pack.').click();
       cy.getBySel(LIVE_QUERY_EDITOR).should('not.exist');
-      cy.getBySel('select-live-pack').click().type(`${packName}{downArrow}{enter}`);
+      cy.getBySel('globalLoadingIndicator').should('not.exist');
+      cy.getBySel('select-live-pack').should('be.visible').click();
+      cy.getBySel('select-live-pack').type(`${packName}{downArrow}{enter}`);
       cy.contains('system_memory_linux_elastic');
       cy.contains('system_info_elastic');
       cy.contains('failingQuery');
