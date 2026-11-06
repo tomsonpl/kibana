@@ -34,6 +34,15 @@ import {
 } from '../../tasks/api_fixtures';
 import { ServerlessRoleName } from '../../support/roles';
 
+// Skipped by #278797 (on-merge build 102657, 2026-07-16). "submits a live query against all agents
+// with a custom timeout", "runs a query with ECS mapping enabled" and "runs a customized saved query
+// and re-runs it from history" time out after 240s in checkResults() waiting for
+// [data-test-subj="osqueryResultsTable"]. Same signature as #249946: both Docker agents error on the
+// query (Status tab 0 / 0 / 2), so the results table never mounts. The cause is the agent fixture
+// (x-pack/solutions/security/test/osquery_cypress), not this spec. Local re-run on 2026-11-06 was
+// blocked (Docker Desktop unavailable). No tracking issue exists yet; open one before re-enabling.
+// Note: "opens query details from history" depends on the previous test's history entry; unskip both together.
+// Skipped: See https://github.com/elastic/kibana/pull/278797
 describe.skip('ALL - Live Query Workflow', { tags: ['@ess', '@serverless'] }, () => {
   beforeEach(() => {
     cy.login(ServerlessRoleName.SOC_MANAGER);
