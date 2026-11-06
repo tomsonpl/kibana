@@ -44,9 +44,15 @@ import { loadSavedQuery, cleanupSavedQuery, cleanupPack, loadPack } from '../../
 import { request } from '../../tasks/common';
 import { ServerlessRoleName } from '../../support/roles';
 
+// Skipped by #278797 (on-merge build 102657, 2026-07-16). Failing tests: "should open lens in new
+// tab", "should open discover in new tab" and "should verify that packs are triggered" (the
+// scheduled-results History poll needs a working agent; see the agent-results signature in #249946).
+// The old MKI-only TODO (#200302, "Check if result type is correct") is closed; @skipInServerlessMKI
+// is kept. Local re-run on 2026-11-06 was blocked (Docker Desktop unavailable). No tracking issue
+// exists yet; open one before re-enabling.
+// Skipped: See https://github.com/elastic/kibana/pull/278797
 describe.skip(
   'Packs - Create and Edit',
-  // TODO: failing on MKI https://github.com/elastic/kibana/issues/200302
   { tags: ['@ess', '@serverless', '@skipInServerlessMKI'] },
   () => {
     let savedQueryId: string;
