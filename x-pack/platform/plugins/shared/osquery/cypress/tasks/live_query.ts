@@ -228,7 +228,10 @@ export const takeOsqueryActionWithParams = () => {
   cy.getBySel('securitySolutionFlyoutFooterDropdownButton').should('not.contain', 'Loading...');
   cy.getBySel('securitySolutionFlyoutFooterDropdownButton').click({ force: true });
   cy.getBySel('osquery-action-item').click();
-  selectAllAgents();
+  // The alert flyout preselects the alert's host agent. "All agents" would pull in other
+  // enrolled-but-offline agents, and #264525 failed waiting for the agentSelection combobox here.
+  cy.contains(/^1 agent selected/);
+  cy.intercept('POST', '/api/osquery/live_queries').as('runLiveQueryWithParams');
   inputQuery("SELECT * FROM os_version where name='{{host.os.name}}';", {
     parseSpecialCharSequences: false,
   });
@@ -236,9 +239,12 @@ export const takeOsqueryActionWithParams = () => {
   typeInECSFieldInput('tags{downArrow}{enter}');
   cy.getBySel('osqueryColumnValueSelect').type('platform_like{downArrow}{enter}');
   submitQuery();
-  checkResults();
-  cy.getBySel(RESULTS_TABLE).within(() => {
-    cy.getBySel('dataGridHeader').should('contain', 'tags');
+  // Assert substitution and the ECS mapping on the dispatched request rather than on result rows,
+  // which depend on a live agent shipping data.
+  cy.wait('@runLiveQueryWithParams').should(({ request }) => {
+    expect(request.body.query).to.match(/^SELECT \* FROM os_version where name='.+';$/);
+    expect(request.body.query).to.not.contain('{{host.os.name}}');
+    expect(request.body.ecs_mapping).to.have.property('tags');
   });
 };
 

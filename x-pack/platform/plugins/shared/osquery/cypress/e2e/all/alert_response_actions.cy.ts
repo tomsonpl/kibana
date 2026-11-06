@@ -88,7 +88,12 @@ describe(
         closeToastIfVisible();
       });
 
-      // skipped: https://github.com/elastic/kibana/issues/264533
+      // #264533 (closed): timed out after 240s on osqueryResultsTable because the test waited on
+      // result rows a Docker agent may never ship. #299029 removed that wait (it now waits on
+      // "Add to Timeline investigation"), but #299145 skipped the test the same day. Candidate for
+      // unskip once it has 3 clean local runs; local runs on 2026-11-06 were blocked (Docker
+      // Desktop unavailable). Open a new issue if it fails again.
+      // Failing: See https://github.com/elastic/kibana/issues/264533
       it.skip(
         'runs a live query from the alert flyout and adds the action to Timeline',
         { tags: ['@skipInServerless'] },
@@ -400,7 +405,13 @@ describe(
         }
       );
 
-      // skipped: https://github.com/elastic/kibana/issues/264525
+      // #264525: "Expected to find element: [data-test-subj="agentSelection"]" (60s).
+      // takeOsqueryActionWithParams called selectAllAgents(), but the alert flyout preselects the
+      // alert's host agent. The helper now asserts "1 agent selected" and checks the dispatched
+      // request, like the enabled sibling test. docTableExpandToggleColumn (Timeline expand) is
+      // unverified against the current Timeline. Not proven stable: local runs on 2026-11-06 were
+      // blocked (Docker Desktop unavailable).
+      // Failing: See https://github.com/elastic/kibana/issues/264525
       it.skip(
         'substitutes params in osquery launched from timeline alerts',
         { tags: ['@skipInServerless'] },
