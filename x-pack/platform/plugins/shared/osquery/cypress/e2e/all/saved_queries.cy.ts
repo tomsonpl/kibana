@@ -43,6 +43,14 @@ import {
 import { ServerlessRoleName } from '../../support/roles';
 import { getAdvancedButton } from '../../screens/integrations';
 
+// #249946: the data-dependent tests ("should create a new query and verify ..." and "prebuilt ›
+// user can run prebuilt saved query and add to case") time out after 240s in checkResults()
+// waiting for [data-test-subj="osqueryResultsTable"]. Both Docker agents error on the query
+// (Status tab 0 / 0 / 2, "2 agents have responded, no osquery data has been reported"), so the
+// empty state is correct app behaviour. The cause is the agent fixture
+// (x-pack/solutions/security/test/osquery_cypress), outside cypress/**. The original Jan 2026
+// `cy.trigger()` "covered by kbnChromeLayoutApplication" signature was fixed by #252127.
+// Local re-run on 2026-11-06 was blocked (Docker Desktop unavailable).
 // Failing: See https://github.com/elastic/kibana/issues/249946
 describe.skip('ALL - Saved queries', { tags: ['@ess', '@serverless'] }, () => {
   let caseId: string;
