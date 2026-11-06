@@ -44,6 +44,15 @@ import {
 } from '../../tasks/integrations';
 import { ServerlessRoleName } from '../../support/roles';
 
+// Skipped by #267293 for #266857 (closed): PR #266513 disables addIntegrationPolicyButton when the
+// viewed package version differs from the installed one, so addCustomIntegration clicked a disabled
+// button. #267294 added installPackageWithVersion() but left this skip in place. The helper now
+// waits for the button to be enabled, and the old versions were bumped to 1.16.0 (0.7.4 required
+// Kibana ^7.16.0 and 1.2.0 required ^8.2.0, so neither targets 9.x). "Upgrade policy with existing
+// packs" (#255381, open) failed with `cy.click()` on agentActionsBtn "covered by" a Fleet tour
+// footer (euiTourFooter); the tour is now dismissed before that click. None of this is proven
+// stable: local runs on 2026-11-06 were blocked (Docker Desktop unavailable).
+// Failing: See https://github.com/elastic/kibana/issues/255381
 describe.skip('ALL - Add Integration', { tags: ['@ess', '@serverless'] }, () => {
   let savedQueryId: string;
 
@@ -80,9 +89,11 @@ describe.skip('ALL - Add Integration', { tags: ['@ess', '@serverless'] }, () => 
     }
   );
 
+  // Disabled-button failure from #266857 (closed); see the suite comment. #255381's title names
+  // "Upgrade policy with existing packs", not this block.
   // Failing: See https://github.com/elastic/kibana/issues/255381
   describe.skip('Add and upgrade integration', { tags: ['@ess', '@serverless'] }, () => {
-    const oldVersion = '0.7.4';
+    const oldVersion = '1.16.0';
     const [integrationName, policyName] = generateRandomStringName(2);
     let policyId: string;
 
@@ -114,6 +125,7 @@ describe.skip('ALL - Add Integration', { tags: ['@ess', '@serverless'] }, () => 
       cy.contains(`version: ${oldVersion}`).should('not.exist');
     });
   });
+  // Skipped together with "Add and upgrade integration"; no failure signature of its own on record.
   // Failing: See https://github.com/elastic/kibana/issues/255381
   describe.skip('Add integration to policy', () => {
     const [integrationName, policyName] = generateRandomStringName(2);
@@ -165,7 +177,7 @@ describe.skip('ALL - Add Integration', { tags: ['@ess', '@serverless'] }, () => 
   });
 
   describe('Upgrade policy with existing packs', () => {
-    const oldVersion = '1.2.0';
+    const oldVersion = '1.16.0';
     const [policyName, integrationName, packName] = generateRandomStringName(3);
     let policyId: string;
     let packId: string;
@@ -200,7 +212,13 @@ describe.skip('ALL - Add Integration', { tags: ['@ess', '@serverless'] }, () => 
           cy.contains('Osquery Manager');
           cy.getBySel('integrationPolicyUpgradeBtn');
           cy.contains(`v${oldVersion}`);
-          cy.getBySel('agentActionsBtn').click();
+        });
+      // #255381: a Fleet tour footer rendered over agentActionsBtn; dismiss it before clicking.
+      closeFleetTourIfVisible();
+      cy.get(`[title="${integrationName}"]`)
+        .parents('tr')
+        .within(() => {
+          cy.getBySel('agentActionsBtn').should('be.visible').click();
         });
       integrationExistsWithinPolicyDetails(integrationName);
       checkDataStreamsInPolicyDetails();

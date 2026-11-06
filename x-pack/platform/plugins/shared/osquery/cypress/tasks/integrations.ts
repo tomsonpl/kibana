@@ -34,7 +34,8 @@ export const addIntegration = (agentPolicy = DEFAULT_POLICY) => {
 };
 
 export const addCustomIntegration = (integrationName: string, policyName: string) => {
-  cy.getBySel(ADD_POLICY_BTN).click();
+  // PR #266513 disables this button while the viewed package version differs from the installed one.
+  cy.getBySel(ADD_POLICY_BTN).should('be.enabled').click();
   cy.getBySel(DATA_COLLECTION_SETUP_STEP).find('.euiLoadingSpinner').should('not.exist');
   cy.getBySel('packagePolicyNameInput').clear();
   cy.getBySel('packagePolicyNameInput').type(`${integrationName}`);
